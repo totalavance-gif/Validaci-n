@@ -1,43 +1,89 @@
+from flask import Flask, render_template, request, jsonify
+from datetime import datetime
 import random
 
-# Mapeo de Clave CURP a Estado, CP y Oficina ADSC
+app = Flask(__name__)
+
+# --- 1. DICCIONARIO MAESTRO DE ESTADOS Y SEDES ---
 DATA_ESTADOS = {
-    "AS": {"nombre": "AGUASCALIENTES", "cp": "20000", "sede": "ADSC Aguascalientes \"1\""},
-    "BC": {"nombre": "BAJA CALIFORNIA", "cp": "21000", "sede": "ADSC Baja California \"1\" Mexicali"},
-    "BS": {"nombre": "BAJA CALIFORNIA SUR", "cp": "23000", "sede": "ADSC Baja California Sur \"1\" La Paz"},
-    "CC": {"nombre": "CAMPECHE", "cp": "24000", "sede": "ADSC Campeche \"1\""},
-    "CL": {"nombre": "COAHUILA", "cp": "25000", "sede": "ADSC Coahuila de Zaragoza \"1\" Saltillo"},
-    "CM": {"nombre": "COLIMA", "cp": "28000", "sede": "ADSC Colima \"1\""},
-    "CS": {"nombre": "CHIAPAS", "cp": "29000", "sede": "ADSC Chiapas \"1\" Tuxtla Gutiérrez"},
-    "CH": {"nombre": "CHIHUAHUA", "cp": "31000", "sede": "ADSC Chihuahua \"1\""},
-    "DF": {"nombre": "CIUDAD DE MÉXICO", "cp": "06000", "sede": "ADSC Distrito Federal \"1\" Centro"},
-    "DG": {"nombre": "DURANGO", "cp": "34000", "sede": "ADSC Durango \"1\""},
-    "GT": {"nombre": "GUANAJUATO", "cp": "37000", "sede": "ADSC Guanajuato \"1\" León"},
-    "GR": {"nombre": "GUERRERO", "cp": "39000", "sede": "ADSC Guerrero \"1\" Chilpancingo"},
-    "HG": {"nombre": "HIDALGO", "cp": "42000", "sede": "ADSC Hidalgo \"1\" Pachuca"},
-    "JC": {"nombre": "JALISCO", "cp": "44000", "sede": "ADSC Jalisco \"1\" Guadalajara"},
-    "MC": {"nombre": "MÉXICO", "cp": "50000", "sede": "ADSC México \"1\" Toluca"},
-    "MN": {"nombre": "MICHOACÁN", "cp": "58000", "sede": "ADSC Michoacán \"1\" Morelia"},
-    "MS": {"nombre": "MORELOS", "cp": "62000", "sede": "ADSC Morelos \"1\" Cuernavaca"},
-    "NT": {"nombre": "NAYARIT", "cp": "63000", "sede": "ADSC Nayarit \"1\" Tepic"},
-    "NL": {"nombre": "NUEVO LEÓN", "cp": "64000", "sede": "ADSC Nuevo León \"1\" Monterrey"},
-    "OC": {"nombre": "OAXACA", "cp": "68000", "sede": "ADSC Oaxaca \"1\""},
-    "PL": {"nombre": "PUEBLA", "cp": "72000", "sede": "ADSC Puebla \"1\""},
-    "QT": {"nombre": "QUERÉTARO", "cp": "76000", "sede": "ADSC Querétaro \"1\""},
-    "QR": {"nombre": "QUINTANA ROO", "cp": "77000", "sede": "ADSC Quintana Roo \"1\" Cancún"},
-    "SP": {"nombre": "SAN LUIS POTOSÍ", "cp": "78000", "sede": "ADSC San Luis Potosí \"1\""},
-    "SL": {"nombre": "SINALOA", "cp": "80000", "sede": "ADSC Sinaloa \"1\" Culiacán"},
-    "SR": {"nombre": "SONORA", "cp": "83000", "sede": "ADSC Sonora \"1\" Hermosillo"},
-    "TC": {"nombre": "TABASCO", "cp": "86000", "sede": "ADSC Tabasco \"1\" Villahermosa"},
-    "TS": {"nombre": "TAMAULIPAS", "cp": "87000", "sede": "ADSC Tamaulipas \"1\" Victoria"},
-    "TL": {"nombre": "TLAXCALA", "cp": "90000", "sede": "ADSC Tlaxcala \"1\""},
-    "VZ": {"nombre": "VERACRUZ", "cp": "91000", "sede": "ADSC Veracruz \"1\" Xalapa"},
-    "YN": {"nombre": "YUCATÁN", "cp": "97000", "sede": "ADSC Yucatán \"1\" Mérida"},
-    "ZS": {"nombre": "ZACATECAS", "cp": "98000", "sede": "ADSC Zacatecas \"1\""}
+    "AS": {"nombre": "AGUASCALIENTES", "cp": "20000", "sede": "ADSC AGUASCALIENTES \"1\""},
+    "BC": {"nombre": "BAJA CALIFORNIA", "cp": "21000", "sede": "ADSC BAJA CALIFORNIA \"1\""},
+    "BS": {"nombre": "BAJA CALIFORNIA SUR", "cp": "23000", "sede": "ADSC BAJA CALIFORNIA SUR \"1\""},
+    "CC": {"nombre": "CAMPECHE", "cp": "24000", "sede": "ADSC CAMPECHE \"1\""},
+    "CL": {"nombre": "COAHUILA", "cp": "25000", "sede": "ADSC COAHUILA \"1\""},
+    "CM": {"nombre": "COLIMA", "cp": "28000", "sede": "ADSC COLIMA \"1\""},
+    "CS": {"nombre": "CHIAPAS", "cp": "29000", "sede": "ADSC CHIAPAS \"1\""},
+    "CH": {"nombre": "CHIHUAHUA", "cp": "31000", "sede": "ADSC CHIHUAHUA \"1\""},
+    "DF": {"nombre": "CIUDAD DE MÉXICO", "cp": "06000", "sede": "ADSC DISTRITO FEDERAL \"1\""},
+    "DG": {"nombre": "DURANGO", "cp": "34000", "sede": "ADSC DURANGO \"1\""},
+    "GT": {"nombre": "GUANAJUATO", "cp": "37000", "sede": "ADSC GUANAJUATO \"1\""},
+    "GR": {"nombre": "GUERRERO", "cp": "39000", "sede": "ADSC GUERRERO \"1\""},
+    "HG": {"nombre": "HIDALGO", "cp": "42000", "sede": "ADSC HIDALGO \"1\""},
+    "JC": {"nombre": "JALISCO", "cp": "44000", "sede": "ADSC JALISCO \"1\""},
+    "MC": {"nombre": "MÉXICO", "cp": "50000", "sede": "ADSC MÉXICO \"1\""},
+    "MN": {"nombre": "MICHOACÁN", "cp": "58000", "sede": "ADSC MICHOACÁN \"1\""},
+    "MS": {"nombre": "MORELOS", "cp": "62000", "sede": "ADSC MORELOS \"1\""},
+    "NT": {"nombre": "NAYARIT", "cp": "63000", "sede": "ADSC NAYARIT \"1\""},
+    "NL": {"nombre": "NUEVO LEÓN", "cp": "64000", "sede": "ADSC NUEVO LEÓN \"1\""},
+    "OC": {"nombre": "OAXACA", "cp": "68000", "sede": "ADSC OAXACA \"1\""},
+    "PL": {"nombre": "PUEBLA", "cp": "72000", "sede": "ADSC PUEBLA \"1\""},
+    "QT": {"nombre": "QUERÉTARO", "cp": "76000", "sede": "ADSC QUERÉTARO \"1\""},
+    "QR": {"nombre": "QUINTANA ROO", "cp": "77000", "sede": "ADSC QUINTANA ROO \"1\""},
+    "SP": {"nombre": "SAN LUIS POTOSÍ", "cp": "78000", "sede": "ADSC SAN LUIS POTOSÍ \"1\""},
+    "SL": {"nombre": "SINALOA", "cp": "80000", "sede": "ADSC SINALOA \"1\""},
+    "SR": {"nombre": "SONORA", "cp": "83000", "sede": "ADSC SONORA \"1\""},
+    "TC": {"nombre": "TABASCO", "cp": "86000", "sede": "ADSC TABASCO \"1\""},
+    "TS": {"nombre": "TAMAULIPAS", "cp": "87000", "sede": "ADSC TAMAULIPAS \"1\""},
+    "TL": {"nombre": "TLAXCALA", "cp": "90000", "sede": "ADSC TLAXCALA \"1\""},
+    "VZ": {"nombre": "VERACRUZ", "cp": "91000", "sede": "ADSC VERACRUZ \"1\""},
+    "YN": {"nombre": "YUCATÁN", "cp": "97000", "sede": "ADSC YUCATÁN \"1\""},
+    "ZS": {"nombre": "ZACATECAS", "cp": "98000", "sede": "ADSC ZACATECAS \"1\""}
 }
 
-def obtener_datos_estado(clave_curp):
-    return DATA_ESTADOS.get(clave_curp.upper(), DATA_ESTADOS["DF"])
+# --- 2. RUTAS DE LA APLICACIÓN ---
 
-def generar_idcif_aleatorio():
-    return "".join([str(random.randint(0, 9)) for _ in range(11)])
+@app.route('/')
+def home():
+    return render_template('index.html')
+
+@app.route('/generar', methods=['POST'])
+def generar():
+    data = request.json
+    curp = data.get('curp', '').upper()
+    
+    # Extraer estado de la CURP (posiciones 11 y 12)
+    clave_estado = curp[10:12]
+    info_geo = DATA_ESTADOS.get(clave_estado, DATA_ESTADOS["DF"])
+    
+    # Generar idCIF aleatorio
+    idcif = "".join([str(random.randint(0, 9)) for _ in range(11)])
+    
+    # Datos para el QR Espejo
+    rfc = curp[:10] # RFC genérico basado en CURP
+    url_espejo = f"https://{request.host}/validar?id={idcif}&rfc={rfc}"
+    qr_url = f"https://api.qrserver.com/v1/create-qr-code/?size=150x150&data={url_espejo}"
+
+    return jsonify({
+        "status": "success",
+        "datos": {
+            "curp": curp,
+            "rfc": rfc,
+            "idcif": idcif,
+            "sede": data.get('sede') if data.get('sede') != 'AUTO' else info_geo['sede'],
+            "fecha": data.get('fecha') or datetime.now().strftime('%d/%m/%Y'),
+            "qr": qr_url,
+            "cp": info_geo['cp'],
+            "estado": info_geo['nombre']
+        }
+    })
+
+@app.route('/validar')
+def validar():
+    # Esta es tu página espejo
+    idcif = request.args.get('id')
+    rfc = request.args.get('rfc')
+    return render_template('validador.html', idcif=idcif, rfc=rfc)
+
+if __name__ == '__main__':
+    app.run(debug=True)
+    
