@@ -3,77 +3,63 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Panel de Control - Laboratorio Fiscal</title>
+    <title>Generador Fiscal Pro</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
         .dato-dinamico {
             position: absolute;
-            font-family: 'Helvetica', 'Arial', sans-serif;
+            font-family: 'Helvetica', Arial, sans-serif;
             color: #000;
             text-transform: uppercase;
             font-weight: bold;
             pointer-events: none;
-            line-height: 1;
+        }
+        /* Asegura que el contenedor mantenga la proporción de una hoja */
+        #canvas-container {
+            width: 800px;
+            height: 1131px; /* Proporción A4/Carta aproximada */
+            background-color: white;
         }
     </style>
 </head>
-<body class="bg-slate-100 min-h-screen p-4">
-    <div class="max-w-5xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6">
+<body class="bg-slate-50 min-h-screen p-4">
+    <div class="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6">
         
-        <div class="lg:col-span-4 bg-white p-6 rounded-2xl shadow-xl border-t-8 border-[#802428]">
-            <h2 class="text-xl font-black text-slate-800 mb-6 tracking-tight uppercase">Panel de Control</h2>
-            
+        <div class="lg:col-span-4 bg-white p-6 rounded-2xl shadow-xl border-t-8 border-[#802428] h-fit">
+            <h2 class="text-xl font-bold text-slate-800 mb-6 uppercase tracking-tight">Panel de Control</h2>
             <div class="space-y-4">
-                <div>
-                    <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">CURP del Contribuyente</label>
-                    <input type="text" id="curp" maxlength="18" class="w-full bg-slate-50 border-2 border-slate-200 rounded-xl p-3 focus:border-[#802428] outline-none uppercase font-mono text-sm" placeholder="XXXX000000XXXXXX00">
-                </div>
-
-                <div>
-                    <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Oficina de Emisión</label>
-                    <select id="sede" class="w-full bg-slate-50 border-2 border-slate-200 rounded-xl p-3 outline-none text-sm">
-                        <option value="AUTO">Automático según Estado</option>
-                        <option value="ADSC MICHOACÁN \"1\" MORELIA">ADSC MICHOACÁN "1" MORELIA</option>
-                        <option value="ADSC DISTRITO FEDERAL \"1\"">ADSC DISTRITO FEDERAL "1"</option>
-                    </select>
-                </div>
-
-                <div>
-                    <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Fecha (Opcional)</label>
-                    <input type="date" id="fecha" class="w-full bg-slate-50 border-2 border-slate-200 rounded-xl p-3 outline-none text-sm">
-                </div>
-
-                <div class="pt-4 space-y-3">
-                    <button onclick="generarVistaPrevia()" class="w-full bg-slate-900 text-white font-bold py-4 rounded-xl hover:bg-black transition-all shadow-lg uppercase text-xs tracking-widest">
-                        Generar Vista Previa
-                    </button>
-                    <button onclick="descargarPDF()" class="w-full bg-[#802428] text-white font-bold py-4 rounded-xl hover:bg-red-900 transition-all shadow-lg uppercase text-xs tracking-widest">
-                        Descargar PDF
-                    </button>
-                </div>
+                <input type="text" id="curp" placeholder="CURP" class="w-full p-3 border-2 rounded-xl uppercase font-mono shadow-sm">
+                <select id="sede" class="w-full p-3 border-2 rounded-xl shadow-sm">
+                    <option value="AUTO">Automático según Estado</option>
+                    <option value="ADSC MICHOACÁN \"1\" MORELIA">ADSC MICHOACÁN "1" MORELIA</option>
+                </select>
+                <input type="date" id="fecha" class="w-full p-3 border-2 rounded-xl shadow-sm">
+                
+                <button onclick="generarVistaPrevia()" class="w-full bg-slate-900 text-white font-bold py-4 rounded-xl hover:scale-[1.02] transition-transform uppercase text-xs">
+                    Generar Vista Previa
+                </button>
+                <button onclick="descargarPDF()" class="w-full bg-[#802428] text-white font-bold py-4 rounded-xl hover:scale-[1.02] transition-transform uppercase text-xs">
+                    Descargar PDF
+                </button>
             </div>
         </div>
 
-        <div class="lg:col-span-8 flex justify-center">
-            <div id="canvas-container" class="relative bg-white shadow-2xl border" style="width: 800px; height: 1050px; min-width: 800px;">
-                <img src="/plantilla.png" id="bg-plantilla" class="absolute inset-0 w-full h-full object-fill" onerror="this.src='https://via.placeholder.com/800x1050?text=Error+al+cargar+plantilla.png'">
+        <div class="lg:col-span-8 flex justify-center bg-slate-200 p-4 rounded-3xl overflow-auto">
+            <div id="canvas-container" class="relative shadow-2xl origin-top scale-[0.8] lg:scale-100">
+                <img id="bg-image" src="/plantilla.png" class="absolute inset-0 w-full h-full object-contain" crossorigin="anonymous">
                 
                 <div id="capa-datos" class="absolute inset-0 hidden">
-                    <img id="render-qr" class="dato-dinamico" style="top: 155px; left: 638px; width: 125px;">
+                    <img id="render-qr" class="dato-dinamico" style="top: 145px; left: 630px; width: 130px;">
                     
-                    <div id="render-lugar-fecha" class="dato-dinamico" style="top: 232px; left: 590px; width: 190px; text-align: center; font-size: 9px;"></div>
+                    <div id="render-lugar-fecha" class="dato-dinamico" style="top: 228px; left: 580px; width: 210px; text-align: center; font-size: 8px;"></div>
                     
-                    <div id="render-rfc" class="dato-dinamico" style="top: 185px; left: 245px; font-size: 14px; letter-spacing: 1px;"></div>
+                    <div id="render-rfc" class="dato-dinamico" style="top: 178px; left: 240px; font-size: 15px;"></div>
                     
-                    <div id="render-idcif" class="dato-dinamico" style="top: 275px; left: 285px; font-size: 11px;"></div>
+                    <div id="render-idcif" class="dato-dinamico" style="top: 270px; left: 280px; font-size: 12px;"></div>
                     
-                    <div id="render-curp" class="dato-dinamico" style="top: 395px; left: 385px; font-size: 11px;"></div>
-                </div>
-
-                <div id="placeholder" class="absolute inset-0 flex items-center justify-center bg-slate-50">
-                    <p class="text-slate-300 font-black uppercase tracking-[0.2em]">Esperando Datos</p>
+                    <div id="render-curp" class="dato-dinamico" style="top: 392px; left: 380px; font-size: 11px;"></div>
                 </div>
             </div>
         </div>
@@ -85,8 +71,6 @@
             const sede = document.getElementById('sede').value;
             const fecha = document.getElementById('fecha').value;
 
-            if (curp.length < 10) { alert("CURP inválida"); return; }
-
             const response = await fetch('/generar', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
@@ -96,31 +80,31 @@
             const res = await response.json();
             if (res.status === 'success') {
                 const d = res.datos;
-                document.getElementById('render-qr').src = d.qr;
+                document.getElementById('render-qr').src = d.qr + "&t=" + new Date().getTime(); // Cache busting
                 document.getElementById('render-lugar-fecha').innerText = `${d.sede} A ${d.fecha}`;
                 document.getElementById('render-rfc').innerText = d.rfc;
                 document.getElementById('render-curp').innerText = d.curp;
                 document.getElementById('render-idcif').innerText = d.idcif;
-
+                
                 document.getElementById('capa-datos').classList.remove('hidden');
-                document.getElementById('placeholder').classList.add('hidden');
             }
         }
 
         async function descargarPDF() {
             const { jsPDF } = window.jspdf;
-            const element = document.getElementById('canvas-container');
+            const container = document.getElementById('canvas-container');
             
-            const canvas = await html2canvas(element, { 
-                scale: 3, 
+            // Forzamos que la imagen base esté cargada antes de capturar
+            const canvas = await html2canvas(container, {
+                scale: 3,
                 useCORS: true,
-                allowTaint: true
+                allowTaint: false,
+                backgroundColor: null
             });
             
-            const imgData = canvas.toDataURL('image/png');
             const pdf = new jsPDF('p', 'mm', 'letter');
-            pdf.addImage(imgData, 'PNG', 0, 0, 216, 279);
-            pdf.save(`Constancia_${document.getElementById('curp').value}.pdf`);
+            pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, 216, 279);
+            pdf.save(`Constancia_${document.getElementById('curp').value || 'Generada'}.pdf`);
         }
     </script>
 </body>
