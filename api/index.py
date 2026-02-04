@@ -8,11 +8,11 @@ from PIL import Image, ImageDraw, ImageFont
 
 app = Flask(__name__, template_folder='../templates')
 
-# --- COORDENADAS RE-ALINEADAS PARA TAMAÑO 45 ---
+# --- COORDENADAS PARA TAMAÑO 40 (Imagen 2550x3300) ---
 COORD_RFC = (635, 545)
 COORD_NOMBRE = (635, 685)
 COORD_IDCIF = (830, 895)
-COORD_LUGAR_FECHA = (1370, 785) # Movido a la izquierda para que no se corte
+COORD_LUGAR_FECHA = (1370, 785)
 COORD_QR = (175, 655)
 
 def procesar_imagen_servidor(datos):
@@ -20,30 +20,27 @@ def procesar_imagen_servidor(datos):
     img = Image.open(base_path).convert('RGBA')
     draw = ImageDraw.Draw(img)
     
-    # --- TAMAÑO SOLICITADO: 45 ---
+    # --- CONFIGURACIÓN DE FUENTES ---
     try:
-        # Intentamos cargar la fuente estándar de Vercel (DejaVuSans)
-        # El tamaño 45 es ideal para que quepa en los recuadros sin chocar
-        font_main = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 45)
-        font_sm = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 38)
+        # Fuente para datos generales (Normal)
+        font_normal = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 40)
+        # Fuente para Lugar y Fecha (Negrita - Bold)
+        font_bold = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 40)
     except:
-        # Fallback si el servidor no tiene la fuente instalada
-        font_main = ImageFont.load_default(size=45)
-        font_sm = ImageFont.load_default(size=38)
+        font_normal = ImageFont.load_default(size=40)
+        font_bold = ImageFont.load_default(size=40)
 
-    # Dibujar Textos
-    # RFC y Nombre en Negritas (font_main)
-    draw.text(COORD_RFC, datos['rfc'], fill="black", font=font_main)
-    draw.text(COORD_NOMBRE, datos['nombre'], fill="black", font=font_main)
+    # 1. Dibujar RFC, Nombre e idCIF (Normal)
+    draw.text(COORD_RFC, datos['rfc'], fill="black", font=font_normal)
+    draw.text(COORD_NOMBRE, datos['nombre'], fill="black", font=font_normal)
+    draw.text(COORD_IDCIF, datos['idcif'], fill="black", font=font_normal)
     
-    # idCIF y Fecha en tamaño estándar
-    draw.text(COORD_IDCIF, datos['idcif'], fill="black", font=font_sm)
-    
-    # Texto de Sede (Sin acento complejo para evitar errores de símbolos)
-    fecha_txt = f"CUAUHTEMOC, CIUDAD DE MEXICO A {datos['fecha']}"
-    draw.text(COORD_LUGAR_FECHA, fecha_txt, fill="black", font=font_sm)
+    # 2. Dibujar Lugar y Fecha (Único campo en NEGRITA)
+    # Formato solicitado: CUAUHTEMOC, CIUDAD DE MEXICO a dd de mm del aaaa
+    texto_lugar_fecha = f"CUAUHTEMOC, CIUDAD DE MEXICO {datos['fecha_larga']}"
+    draw.text(COORD_LUGAR_FECHA, texto_lugar_fecha, fill="black", font=font_bold)
 
-    # Pegar QR
+    # 3. Pegar QR
     try:
         qr_req = requests.get(datos['qr_url'], timeout=10)
         qr_img = Image.open(io.BytesIO(qr_req.content)).convert('RGBA')
@@ -52,7 +49,6 @@ def procesar_imagen_servidor(datos):
     except:
         pass
 
-    # Finalizar imagen
     final_img = img.convert('RGB')
     img_io = io.BytesIO()
     final_img.save(img_io, 'PNG')
@@ -68,23 +64,28 @@ def procesar():
     curp = request.form.get('curp', '').upper()
     nombre = request.form.get('nombre', '').upper()
     
+    # Lógica de datos
     rfc = curp[:10]
     idcif = "".join([str(random.randint(0, 9)) for _ in range(11)])
-    fecha = datetime.now().strftime('%d/%m/%Y')
     
-    # Generar QR dinámico
+    # Formatear fecha: a dd de mm del aaaa
+    meses = ["enero", "febrero", "marzo", "abril", "mayo", "junio", 
+             "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"]
+    now = datetime.now()
+    fecha_larga = f"a {now.day:02d} de {meses[now.month-1]} del {now.year}"
+    
+    # QR dinámico
     url_val = f"https://{request.host}/validar?id={idcif}&rfc={rfc}"
     qr_api = f"https://api.qrserver.com/v1/create-qr-code/?size=500x500&data={url_val}"
 
-    datos = {'rfc': rfc, 'nombre': nombre, 'idcif': idcif, 'fecha': fecha, 'qr_url': qr_api}
+    datos = {
+        'rfc': rfc, 
+        'nombre': nombre, 
+        'idcif': idcif, 
+        'fecha_larga': fecha_larga, 
+        'qr_url': qr_api
+    }
     
     archivo = procesar_imagen_servidor(datos)
-    return send_file(archivo, mimetype='image/png', as_attachment=True, download_name=f"Constancia_{rfc}.png")
-
-@app.route('/validar')
-def validar():
-    return render_template('validador.html', 
-                           idcif=request.args.get('id'), 
-                           rfc=request.args.get('rfc'), 
-                           datetime=datetime.now().strftime('%d/%m/%Y %H:%M:%S'))
+    return send_file(archivo, mimetype='image/png', as_attachment=True, download_name=f"RFC_{rfc}.png")
     
