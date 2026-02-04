@@ -28,11 +28,11 @@ TABLA_ESTATUS = (989, 1810)
 TABLA_ULT_CAMBIO = (987, 1910)
 
 # --- COORDENADAS: DOMICILIO FISCAL ---
-# Filas Y (Alturas con ajustes de "subida" previos)
+# Filas Y
 Y_R1 = 2244  # CP y Tipo Vialidad
 Y_R2 = 2344  # Vialidad y Num Ext
 Y_R3 = 2444  # Num Int y Colonia
-Y_R4 = 2532  # Localidad y Municipio
+Y_R4 = 2532  # Localidad (Municipio eliminado de aquí)
 Y_R5 = 2632  # Entidad y Calles
 
 # Columna Izquierda (X)
@@ -40,13 +40,12 @@ X_CP = 342
 X_VIALIDAD = 432    
 X_INTERIOR = 372    
 X_LOCALIDAD = 482   
-X_ENTIDAD = 540     # Regresado a la posición anterior según instrucción
+X_ENTIDAD = 540     
 
 # Columna Derecha (X)
 X_TIPO_V = 1640     
 X_EXTERIOR = 1650   
 X_COLONIA = 1730    
-X_MUNICIPIO = 2016  # Ajustado: +5mm (60px) a la derecha
 X_CALLES = 1530     
 
 def generar_homoclave():
@@ -58,6 +57,7 @@ def procesar_imagen_servidor(datos):
     draw = ImageDraw.Draw(img)
     
     try:
+        # Intentar cargar fuentes estándar de Linux (Vercel)
         font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", TAMANO_FUENTE)
         font_b = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", TAMANO_FUENTE)
     except:
@@ -79,7 +79,7 @@ def procesar_imagen_servidor(datos):
     draw.text(TABLA_ESTATUS, "ACTIVO", fill="black", font=font)
     draw.text(TABLA_ULT_CAMBIO, datos['fecha_cambio'], fill="black", font=font)
 
-    # 2. DIBUJAR DOMICILIO
+    # 2. DIBUJAR DOMICILIO (Municipio removido)
     draw.text((X_CP, Y_R1), "06300", fill="black", font=font)
     draw.text((X_TIPO_V, Y_R1), "AVENIDA", fill="black", font=font)
     draw.text((X_VIALIDAD, Y_R2), "AVENIDA HIDALGO", fill="black", font=font)
@@ -87,11 +87,10 @@ def procesar_imagen_servidor(datos):
     draw.text((X_INTERIOR, Y_R3), "S/N", fill="black", font=font)
     draw.text((X_COLONIA, Y_R3), "GUERRERO", fill="black", font=font)
     draw.text((X_LOCALIDAD, Y_R4), "CIUDAD DE MEXICO", fill="black", font=font)
-    draw.text((X_MUNICIPIO, Y_R4), "CUAUHTEMOC", fill="black", font=font)
     draw.text((X_ENTIDAD, Y_R5), "CIUDAD DE MEXICO", fill="black", font=font)
     draw.text((X_CALLES, Y_R5), "ENTRE CALLE REFORMA Y CALLE SOTO", fill="black", font=font)
 
-    # 3. REFERENCIA QR (Mantenido como cuadro para pruebas)
+    # 3. REFERENCIA QR
     draw.rectangle([COORD_QR_POS, (COORD_QR_POS[0]+405, COORD_QR_POS[1]+405)], fill="black")
 
     img_io = io.BytesIO()
