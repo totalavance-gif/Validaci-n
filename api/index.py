@@ -27,8 +27,8 @@ TABLA_INICIO_OPS = (961, 1715)
 TABLA_ESTATUS = (989, 1810)
 TABLA_ULT_CAMBIO = (987, 1910)
 
-# --- COORDENADAS: DOMICILIO FISCAL (AJUSTE FINAL) ---
-# Filas Y
+# --- COORDENADAS: DOMICILIO FISCAL ---
+# Filas Y (Alturas con ajustes de "subida" previos)
 Y_R1 = 2244  # CP y Tipo Vialidad
 Y_R2 = 2344  # Vialidad y Num Ext
 Y_R3 = 2444  # Num Int y Colonia
@@ -40,13 +40,13 @@ X_CP = 342
 X_VIALIDAD = 432    
 X_INTERIOR = 372    
 X_LOCALIDAD = 482   
-X_ENTIDAD = 636     # Ajustado: 576 + 60px (5mm)
+X_ENTIDAD = 540     # Regresado a la posición anterior según instrucción
 
 # Columna Derecha (X)
 X_TIPO_V = 1640     
 X_EXTERIOR = 1650   
 X_COLONIA = 1730    
-X_MUNICIPIO = 2016  # Ajustado: 1956 + 60px (5mm)
+X_MUNICIPIO = 2016  # Ajustado: +5mm (60px) a la derecha
 X_CALLES = 1530     
 
 def generar_homoclave():
@@ -91,7 +91,7 @@ def procesar_imagen_servidor(datos):
     draw.text((X_ENTIDAD, Y_R5), "CIUDAD DE MEXICO", fill="black", font=font)
     draw.text((X_CALLES, Y_R5), "ENTRE CALLE REFORMA Y CALLE SOTO", fill="black", font=font)
 
-    # 3. REFERENCIA QR
+    # 3. REFERENCIA QR (Mantenido como cuadro para pruebas)
     draw.rectangle([COORD_QR_POS, (COORD_QR_POS[0]+405, COORD_QR_POS[1]+405)], fill="black")
 
     img_io = io.BytesIO()
@@ -131,3 +131,4 @@ def index():
 
 if __name__ == '__main__':
     app.run(debug=True)
+    
