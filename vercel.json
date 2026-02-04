@@ -8,10 +8,6 @@
   ],
   "routes": [
     {
-      "src": "/plantilla.png",
-      "dest": "/plantilla.png"
-    },
-    {
       "src": "/(.*)",
       "dest": "api/index.py"
     }
