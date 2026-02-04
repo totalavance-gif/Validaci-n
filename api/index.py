@@ -8,13 +8,13 @@ from PIL import Image, ImageDraw, ImageFont
 
 app = Flask(__name__, template_folder='../templates')
 
-# --- CONFIGURACIÓN DE FUENTES ---
+# --- CONFIGURACIÓN GLOBAL ---
 TAMANO_FUENTE = 39
 
-# --- COORDENADAS DE IDENTIFICACIÓN (ENCABEZADO Y TABLA 1) ---
+# --- COORDENADAS: IDENTIFICACIÓN (ENCABEZADO Y TABLA 1) ---
 COORD_ENC_RFC = (730, 580)
 COORD_ENC_NOMBRE = (635, 720)
-COORD_ENC_IDCIF = (830, 884)
+COORD_ENC_IDCIF = (830, 884)  # Bajado 2mm previos
 COORD_ENC_LUGAR_FECHA = (1370, 820)
 COORD_QR_POS = (140, 596)
 
@@ -27,23 +27,29 @@ TABLA_INICIO_OPS = (961, 1715)
 TABLA_ESTATUS = (989, 1810)
 TABLA_ULT_CAMBIO = (987, 1910)
 
-# --- COORDENADAS DOMICILIO (ALINEADAS TRAS LOS DOS PUNTOS) ---
-# Columna Izquierda
-X_CP = 330
-X_VIALIDAD = 420
-X_INTERIOR = 360
-X_LOCALIDAD = 470
-X_ENTIDAD = 540
+# --- COORDENADAS: DOMICILIO FISCAL (AJUSTES DE PRECISION) ---
+# Y_R: Filas (Subidas 1mm o 2mm según tu instrucción)
+# X: Columnas (Movidas a la derecha para no tocar los dos puntos)
 
-# Columna Derecha
-X_TIPO_V = 1640
-X_EXTERIOR = 1650
-X_COLONIA = 1730
-X_MUNICIPIO = 1920
-X_CALLES = 1530
+Y_R1 = 2244  # CP y Tipo Vialidad (Sube 1mm)
+Y_R2 = 2344  # Vialidad y Num Ext (Sube 1mm)
+Y_R3 = 2444  # Num Int y Colonia (Sube 1mm)
+Y_R4 = 2532  # Localidad y Municipio (Sube 2mm)
+Y_R5 = 2632  # Entidad y Calles (Sube 2mm)
 
-# Filas Y
-Y_R1, Y_R2, Y_R3, Y_R4, Y_R5 = 2256, 2356, 2456, 2556, 2656
+# Columna Izquierda (X)
+X_CP = 342          # +1mm derecha
+X_VIALIDAD = 432    # +1mm derecha
+X_INTERIOR = 372    # +1mm derecha
+X_LOCALIDAD = 482   # +1mm derecha
+X_ENTIDAD = 576     # +3mm derecha
+
+# Columna Derecha (X)
+X_TIPO_V = 1640     
+X_EXTERIOR = 1650   
+X_COLONIA = 1730    
+X_MUNICIPIO = 1956  # +3mm derecha
+X_CALLES = 1530     
 
 def generar_homoclave():
     return ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(3))
@@ -60,7 +66,7 @@ def procesar_imagen_servidor(datos):
         font = ImageFont.load_default(size=TAMANO_FUENTE)
         font_b = ImageFont.load_default(size=TAMANO_FUENTE)
 
-    # 1. IDENTIFICACIÓN
+    # 1. DIBUJAR IDENTIFICACIÓN
     draw.text(COORD_ENC_RFC, datos['rfc'], fill="black", font=font)
     draw.text(COORD_ENC_NOMBRE, datos['nombre_completo'], fill="black", font=font)
     draw.text(COORD_ENC_IDCIF, datos['idcif'], fill="black", font=font)
@@ -75,20 +81,24 @@ def procesar_imagen_servidor(datos):
     draw.text(TABLA_ESTATUS, "ACTIVO", fill="black", font=font)
     draw.text(TABLA_ULT_CAMBIO, datos['fecha_cambio'], fill="black", font=font)
 
-    # 2. DOMICILIO (ALINEACIÓN TRAS LOS PUNTOS)
+    # 2. DIBUJAR DOMICILIO (CON AJUSTES SOLICITADOS)
+    # Fila 1
     draw.text((X_CP, Y_R1), "06300", fill="black", font=font)
-    draw.text((X_VIALIDAD, Y_R2), "AVENIDA HIDALGO", fill="black", font=font)
-    draw.text((X_INTERIOR, Y_R3), "S/N", fill="black", font=font)
-    draw.text((X_LOCALIDAD, Y_R4), "CIUDAD DE MEXICO", fill="black", font=font)
-    draw.text((X_ENTIDAD, Y_R5), "CIUDAD DE MEXICO", fill="black", font=font)
-    
     draw.text((X_TIPO_V, Y_R1), "AVENIDA", fill="black", font=font)
+    # Fila 2
+    draw.text((X_VIALIDAD, Y_R2), "AVENIDA HIDALGO", fill="black", font=font)
     draw.text((X_EXTERIOR, Y_R2), "77", fill="black", font=font)
+    # Fila 3
+    draw.text((X_INTERIOR, Y_R3), "S/N", fill="black", font=font)
     draw.text((X_COLONIA, Y_R3), "GUERRERO", fill="black", font=font)
+    # Fila 4
+    draw.text((X_LOCALIDAD, Y_R4), "CIUDAD DE MEXICO", fill="black", font=font)
     draw.text((X_MUNICIPIO, Y_R4), "CUAUHTEMOC", fill="black", font=font)
+    # Fila 5
+    draw.text((X_ENTIDAD, Y_R5), "CIUDAD DE MEXICO", fill="black", font=font)
     draw.text((X_CALLES, Y_R5), "ENTRE CALLE REFORMA Y CALLE SOTO", fill="black", font=font)
 
-    # 3. QR REFERENCIA
+    # 3. REFERENCIA QR (CUADRO NEGRO)
     draw.rectangle([COORD_QR_POS, (COORD_QR_POS[0]+405, COORD_QR_POS[1]+405)], fill="black")
 
     img_io = io.BytesIO()
@@ -120,9 +130,11 @@ def procesar():
         'fecha_inicio': "17/01/2023", 'fecha_cambio': "15/01/2025"
     }
     
-    return send_file(procesar_imagen_servidor(datos), mimetype='image/png', as_attachment=False, download_name=f"Constancia_{rfc}.png")
+    return send_file(procesar_imagen_servidor(datos), mimetype='image/png', as_attachment=False, download_name=f"CIF_{rfc}.png")
 
 @app.route('/')
 def index():
     return render_template('index.html')
-    
+
+if __name__ == '__main__':
+    app.run(debug=True)
