@@ -1,12 +1,16 @@
-from flask import Flask, render_template, request, jsonify
-from datetime import datetime
-import random
 import os
+import random
+from datetime import datetime
+from flask import Flask, render_template, request, jsonify
 
-# Configuración de la App con ruta de plantillas corregida para Vercel
-app = Flask(__name__, template_folder='../templates')
+# Configuración robusta de rutas para Vercel
+# Esto obliga a Flask a buscar 'templates' un nivel arriba de donde está este archivo
+base_dir = os.path.abspath(os.path.dirname(__file__))
+template_dir = os.path.join(base_dir, '..', 'templates')
 
-# --- 1. DICCIONARIO MAESTRO DE ESTADOS Y SEDES ---
+app = Flask(__name__, template_folder=template_dir)
+
+# --- DICCIONARIO DE ESTADOS Y SEDES ---
 DATA_ESTADOS = {
     "AS": {"nombre": "AGUASCALIENTES", "cp": "20000", "sede": "ADSC AGUASCALIENTES \"1\""},
     "BC": {"nombre": "BAJA CALIFORNIA", "cp": "21000", "sede": "ADSC BAJA CALIFORNIA \"1\""},
@@ -42,30 +46,27 @@ DATA_ESTADOS = {
     "ZS": {"nombre": "ZACATECAS", "cp": "98000", "sede": "ADSC ZACATECAS \"1\""}
 }
 
-# --- 2. RUTAS DE LA APLICACIÓN ---
-
 @app.route('/')
 def home():
-    # Intenta renderizar el index principal
-    return render_template('index.html')
+    try:
+        return render_template('index.html')
+    except Exception as e:
+        return f"Error: No se encontró la plantilla index.html. Detalle: {str(e)}", 500
 
 @app.route('/generar', methods=['POST'])
 def generar():
     data = request.json
     curp = data.get('curp', '').upper()
     
-    # Extraer estado de la CURP (posiciones 11 y 12)
+    # Lógica de extracción de estado
     clave_estado = curp[10:12] if len(curp) >= 12 else "DF"
     info_geo = DATA_ESTADOS.get(clave_estado, DATA_ESTADOS["DF"])
     
-    # Generar idCIF aleatorio de 11 dígitos
+    # Generación de idCIF
     idcif = "".join([str(random.randint(0, 9)) for _ in range(11)])
-    
-    # RFC genérico basado en CURP (primeros 10 caracteres)
     rfc = curp[:10]
     
-    # URL de validación espejo para el QR
-    # request.host detecta automáticamente si es localhost o la URL de Vercel
+    # QR apuntando a la misma URL de Vercel
     url_espejo = f"https://{request.host}/validar?id={idcif}&rfc={rfc}"
     qr_url = f"https://api.qrserver.com/v1/create-qr-code/?size=200x200&data={url_espejo}"
 
@@ -85,14 +86,10 @@ def generar():
 
 @app.route('/validar')
 def validar():
-    # Esta es la página espejo que abre el oficial
     idcif = request.args.get('id', 'N/A')
     rfc = request.args.get('rfc', 'N/A')
-    # Obtenemos la fecha actual para que la validación se vea reciente
     fecha_actual = datetime.now().strftime('%d/%m/%Y %H:%M:%S')
     return render_template('validador.html', idcif=idcif, rfc=rfc, datetime=fecha_actual)
 
-# Esta parte es solo para desarrollo local, Vercel usa el objeto 'app'
 if __name__ == '__main__':
     app.run(debug=True)
-    
