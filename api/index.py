@@ -8,15 +8,13 @@ from PIL import Image, ImageDraw, ImageFont
 
 app = Flask(__name__, template_folder='../templates')
 
-# --- COORDENADAS DE MAPEO ---
-# Encabezado (Ajustados 3mm arriba)
+# --- COORDENADAS DE MAPEO (Calibradas) ---
 COORD_ENC_RFC = (730, 580)
 COORD_ENC_NOMBRE = (635, 720)
-COORD_ENC_IDCIF = (830, 860)        # Subido 3mm
+COORD_ENC_IDCIF = (830, 860)        
 COORD_ENC_LUGAR_FECHA = (1370, 820)
-COORD_QR_POS = (140, 596)           # Subido 3mm
+COORD_QR_POS = (140, 596)           
 
-# Tabla de Identificación (Tal cual la dejaste)
 TABLA_RFC = (957, 1246) 
 TABLA_CURP = (966, 1350)
 TABLA_NOMBRES = (980, 1435)
@@ -30,18 +28,20 @@ def generar_homoclave():
     return ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(3))
 
 def procesar_imagen_servidor(datos):
-    # Cargar plantilla
     base_path = os.path.join(os.path.dirname(__file__), '..', 'plantilla.png')
     img = Image.open(base_path).convert('RGBA')
     draw = ImageDraw.Draw(img)
     
-    # Cargar fuentes
+    # --- CONFIGURACIÓN DE FUENTE TAMAÑO 39 ---
+    tamano_fuente = 39
     try:
-        font_normal = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 39)
-        font_bold = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 39)
+        # Intentamos cargar una fuente estándar de Linux (Vercel usa Amazon Linux/Debian)
+        font_normal = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", tamano_fuente)
+        font_bold = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", tamano_fuente)
     except:
-        font_normal = ImageFont.load_default()
-        font_bold = ImageFont.load_default()
+        # Si falla, usamos la fuente por defecto del sistema con el tamaño solicitado
+        font_normal = ImageFont.load_default(size=tamano_fuente)
+        font_bold = ImageFont.load_default(size=tamano_fuente)
 
     # 1. ENCABEZADO
     draw.text(COORD_ENC_RFC, datos['rfc'], fill="black", font=font_normal)
@@ -49,7 +49,7 @@ def procesar_imagen_servidor(datos):
     draw.text(COORD_ENC_IDCIF, datos['idcif'], fill="black", font=font_normal)
     draw.text(COORD_ENC_LUGAR_FECHA, f"CUAUHTEMOC, CIUDAD DE MEXICO {datos['fecha_emision_larga']}", fill="black", font=font_bold)
 
-    # 2. TABLA
+    # 2. TABLA DE DATOS
     draw.text(TABLA_RFC, datos['rfc'], fill="black", font=font_normal)
     draw.text(TABLA_CURP, datos['curp'], fill="black", font=font_normal)
     draw.text(TABLA_NOMBRES, datos['solo_nombres'], fill="black", font=font_normal)
@@ -59,8 +59,7 @@ def procesar_imagen_servidor(datos):
     draw.text(TABLA_ESTATUS, "ACTIVO", fill="black", font=font_normal)
     draw.text(TABLA_ULT_CAMBIO, datos['fecha_cambio'], fill="black", font=font_normal)
 
-    # 3. QR (CUADRO NEGRO TEMPORAL PARA MAPEO)
-    # Dibujamos un cuadro negro donde irá el QR para validar posición
+    # 3. REFERENCIA DEL QR (CUADRO NEGRO)
     draw.rectangle([COORD_QR_POS, (COORD_QR_POS[0]+405, COORD_QR_POS[1]+405)], fill="black")
 
     img_io = io.BytesIO()
@@ -95,7 +94,7 @@ def procesar():
         'fecha_inicio': "17/01/2023", 'fecha_cambio': "15/01/2025"
     }
     
-    return send_file(procesar_imagen_servidor(datos), mimetype='image/png', as_attachment=True, download_name=f"Mapeo_{rfc}.png")
+    return send_file(procesar_imagen_servidor(datos), mimetype='image/png', as_attachment=True, download_name=f"Prueba_Fuente39_{rfc}.png")
 
 @app.route('/')
 def index():
