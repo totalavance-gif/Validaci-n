@@ -3,128 +3,66 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Generador Fiscal - Laboratorio</title>
+    <title>Generador Fiscal - Reconstructor Pro</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
-        .dato-dinamico {
-            position: absolute;
-            font-family: 'Helvetica', Arial, sans-serif;
-            color: #000;
-            text-transform: uppercase;
-            font-weight: bold;
-            pointer-events: none;
-            display: flex;
-            align-items: center;
-        }
-        /* Contenedor con la proporción de tu mapa (aprox 2500px de ancho) */
-        #canvas-container {
-            width: 800px;
-            height: 1131px;
-            background-color: #fff;
-            position: relative;
-            overflow: hidden;
+        .sat-gradient {
+            background: linear-gradient(135deg, #13322b 0%, #0b1d19 100%);
         }
     </style>
 </head>
-<body class="bg-slate-100 min-h-screen p-4">
-    <div class="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6">
-        
-        <div class="lg:col-span-4 bg-white p-6 rounded-2xl shadow-xl border-t-8 border-[#802428]">
-            <h2 class="text-xl font-black text-slate-800 mb-6 uppercase tracking-tighter">Panel de Control</h2>
+<body class="bg-slate-100 min-h-screen flex items-center justify-center p-4">
+
+    <div class="max-w-md w-full bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-200">
+        <div class="sat-gradient p-8 text-white text-center">
+            <div class="inline-block p-3 bg-white/10 rounded-2xl mb-4 backdrop-blur-md">
+                <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                </svg>
+            </div>
+            <h1 class="text-2xl font-black uppercase tracking-tighter">Panel de Control</h1>
+            <p class="text-xs font-medium opacity-70 mt-1 uppercase tracking-widest">Generación por Reconstructor de Servidor</p>
+        </div>
+
+        <form action="/procesar" method="POST" class="p-8 space-y-5">
             
-            <div class="space-y-4">
-                <div>
-                    <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">CURP</label>
-                    <input type="text" id="curp" maxlength="18" class="w-full bg-slate-50 border-2 border-slate-200 rounded-xl p-3 focus:border-[#802428] outline-none uppercase font-mono shadow-inner">
-                </div>
-
-                <div>
-                    <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Nombre Completo</label>
-                    <input type="text" id="nombre_input" class="w-full bg-slate-50 border-2 border-slate-200 rounded-xl p-3 focus:border-[#802428] outline-none uppercase shadow-inner" placeholder="NOMBRE(S) APELLIDOS">
-                </div>
-
-                <div>
-                    <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Sede de Emisión</label>
-                    <select id="sede" class="w-full bg-slate-50 border-2 border-slate-200 rounded-xl p-3 outline-none shadow-inner">
-                        <option value="AUTO">Automático por CURP</option>
-                        <option value="ADSC MICHOACÁN \"1\" MORELIA">ADSC MICHOACÁN "1" MORELIA</option>
-                        <option value="ADSC DISTRITO FEDERAL \"1\"">ADSC DISTRITO FEDERAL "1"</option>
-                    </select>
-                </div>
-
-                <div class="pt-4 space-y-3">
-                    <button onclick="generarVistaPrevia()" class="w-full bg-slate-900 text-white font-bold py-4 rounded-xl hover:bg-black transition-all shadow-lg uppercase text-xs">
-                        Actualizar Vista Previa
-                    </button>
-                    <button onclick="descargarPDF()" class="w-full bg-[#802428] text-white font-bold py-4 rounded-xl hover:bg-red-900 transition-all shadow-lg uppercase text-xs">
-                        Descargar Constancia PDF
-                    </button>
-                </div>
+            <div>
+                <label class="block text-[10px] font-black text-slate-400 uppercase mb-2 tracking-widest">CURP del Contribuyente</label>
+                <input type="text" name="curp" required maxlength="18" 
+                    class="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 focus:border-[#802428] outline-none transition-all font-mono uppercase text-sm shadow-sm"
+                    placeholder="XXXX000000XXXXXX00">
             </div>
-        </div>
 
-        <div class="lg:col-span-8 flex justify-center bg-slate-300 p-4 rounded-3xl shadow-inner overflow-auto">
-            <div id="canvas-container" class="shadow-2xl">
-                <img src="/plantilla.png" id="bg-image" class="absolute inset-0 w-full h-full object-fill" crossorigin="anonymous">
-                
-                <div id="capa-datos" class="absolute inset-0 hidden">
-                    
-                    <img id="render-qr" class="dato-dinamico" style="top: 25.5%; left: 6.8%; width: 16.5%;">
-                    
-                    <div id="render-rfc" class="dato-dinamico" style="top: 21.5%; left: 24.5%; font-size: 14px; width: 22%;"></div>
-                    
-                    <div id="render-nombre" class="dato-dinamico" style="top: 27.2%; left: 25.5%; font-size: 13px; width: 25%;"></div>
-                    
-                    <div id="render-idcif" class="dato-dinamico" style="top: 35%; left: 33.5%; font-size: 12px; width: 15%;"></div>
-                    
-                    <div id="render-lugar-fecha" class="dato-dinamico" style="top: 31%; left: 56%; width: 42%; font-size: 9px; text-align: left;"></div>
-
-                </div>
+            <div>
+                <label class="block text-[10px] font-black text-slate-400 uppercase mb-2 tracking-widest">Nombre Completo</label>
+                <input type="text" name="nombre" required
+                    class="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 focus:border-[#802428] outline-none transition-all uppercase text-sm shadow-sm"
+                    placeholder="NOMBRE(S) APELLIDOS">
             </div>
-        </div>
+
+            <div>
+                <label class="block text-[10px] font-black text-slate-400 uppercase mb-2 tracking-widest">Sede de Emisión</label>
+                <select name="sede" 
+                    class="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 focus:border-[#802428] outline-none transition-all text-sm shadow-sm appearance-none">
+                    <option value="ADSC MICHOACÁN &quot;1&quot; MORELIA">ADSC MICHOACÁN "1" MORELIA</option>
+                    <option value="ADSC DISTRITO FEDERAL &quot;1&quot;">ADSC DISTRITO FEDERAL "1"</option>
+                    <option value="ADSC JALISCO &quot;1&quot; GUADALAJARA">ADSC JALISCO "1" GUADALAJARA</option>
+                    <option value="ADSC NUEVO LEÓN &quot;1&quot; MONTERREY">ADSC NUEVO LEÓN "1" MONTERREY</option>
+                </select>
+            </div>
+
+            <div class="pt-4">
+                <button type="submit" 
+                    class="w-full sat-gradient text-white font-black py-5 rounded-2xl hover:scale-[1.02] active:scale-95 transition-all shadow-xl uppercase text-xs tracking-[0.2em]">
+                    Generar y Descargar PNG
+                </button>
+            </div>
+            
+            <p class="text-[9px] text-center text-slate-400 uppercase font-bold tracking-tighter">
+                El servidor procesará la plantilla.png con coordenadas exactas.
+            </p>
+        </form>
     </div>
 
-    <script>
-        async function generarVistaPrevia() {
-            const curp = document.getElementById('curp').value;
-            const sede = document.getElementById('sede').value;
-            const nombre = document.getElementById('nombre_input').value;
-
-            const response = await fetch('/generar', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ curp, sede, nombre })
-            });
-
-            const res = await response.json();
-            if (res.status === 'success') {
-                const d = res.datos;
-                document.getElementById('render-qr').src = d.qr;
-                document.getElementById('render-rfc').innerText = d.rfc;
-                document.getElementById('render-nombre').innerText = nombre || "CONTRIBUYENTE EJEMPLO";
-                document.getElementById('render-idcif').innerText = d.idcif;
-                document.getElementById('render-lugar-fecha').innerText = `${d.sede} A ${d.fecha}`;
-
-                document.getElementById('capa-datos').classList.remove('hidden');
-            }
-        }
-
-        async function descargarPDF() {
-            const { jsPDF } = window.jspdf;
-            const element = document.getElementById('canvas-container');
-            
-            const canvas = await html2canvas(element, { 
-                scale: 3, 
-                useCORS: true,
-                allowTaint: true
-            });
-            
-            const pdf = new jsPDF('p', 'mm', 'letter');
-            pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, 216, 279);
-            pdf.save(`Constancia_${document.getElementById('curp').value || 'SAT'}.pdf`);
-        }
-    </script>
 </body>
 </html>
