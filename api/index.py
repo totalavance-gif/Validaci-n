@@ -8,13 +8,15 @@ from PIL import Image, ImageDraw, ImageFont
 
 app = Flask(__name__, template_folder='../templates')
 
-# --- COORDENADAS DE MAPEO (Calibradas) ---
+# --- COORDENADAS CALIBRADAS ---
 COORD_ENC_RFC = (730, 580)
 COORD_ENC_NOMBRE = (635, 720)
-COORD_ENC_IDCIF = (830, 860)        
+# Se baja 2mm respecto a la versión anterior (estaba en 860, ahora 884)
+COORD_ENC_IDCIF = (830, 884)        
 COORD_ENC_LUGAR_FECHA = (1370, 820)
 COORD_QR_POS = (140, 596)           
 
+# Tabla de Datos
 TABLA_RFC = (957, 1246) 
 TABLA_CURP = (966, 1350)
 TABLA_NOMBRES = (980, 1435)
@@ -32,24 +34,21 @@ def procesar_imagen_servidor(datos):
     img = Image.open(base_path).convert('RGBA')
     draw = ImageDraw.Draw(img)
     
-    # --- CONFIGURACIÓN DE FUENTE TAMAÑO 39 ---
     tamano_fuente = 39
     try:
-        # Intentamos cargar una fuente estándar de Linux (Vercel usa Amazon Linux/Debian)
         font_normal = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", tamano_fuente)
         font_bold = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", tamano_fuente)
     except:
-        # Si falla, usamos la fuente por defecto del sistema con el tamaño solicitado
         font_normal = ImageFont.load_default(size=tamano_fuente)
         font_bold = ImageFont.load_default(size=tamano_fuente)
 
-    # 1. ENCABEZADO
+    # 1. Dibujar Textos de Encabezado
     draw.text(COORD_ENC_RFC, datos['rfc'], fill="black", font=font_normal)
     draw.text(COORD_ENC_NOMBRE, datos['nombre_completo'], fill="black", font=font_normal)
     draw.text(COORD_ENC_IDCIF, datos['idcif'], fill="black", font=font_normal)
     draw.text(COORD_ENC_LUGAR_FECHA, f"CUAUHTEMOC, CIUDAD DE MEXICO {datos['fecha_emision_larga']}", fill="black", font=font_bold)
 
-    # 2. TABLA DE DATOS
+    # 2. Dibujar Textos de Tabla
     draw.text(TABLA_RFC, datos['rfc'], fill="black", font=font_normal)
     draw.text(TABLA_CURP, datos['curp'], fill="black", font=font_normal)
     draw.text(TABLA_NOMBRES, datos['solo_nombres'], fill="black", font=font_normal)
@@ -59,7 +58,7 @@ def procesar_imagen_servidor(datos):
     draw.text(TABLA_ESTATUS, "ACTIVO", fill="black", font=font_normal)
     draw.text(TABLA_ULT_CAMBIO, datos['fecha_cambio'], fill="black", font=font_normal)
 
-    # 3. REFERENCIA DEL QR (CUADRO NEGRO)
+    # 3. Cuadro Negro del QR (Referencia)
     draw.rectangle([COORD_QR_POS, (COORD_QR_POS[0]+405, COORD_QR_POS[1]+405)], fill="black")
 
     img_io = io.BytesIO()
@@ -73,12 +72,9 @@ def procesar():
     nombre_raw = request.form.get('nombre', '').upper().split()
     
     if len(nombre_raw) >= 3:
-        solo_nombres = " ".join(nombre_raw[:-2])
-        apellido1 = nombre_raw[-2]
-        apellido2 = nombre_raw[-1]
+        solo_nombres, apellido1, apellido2 = " ".join(nombre_raw[:-2]), nombre_raw[-2], nombre_raw[-1]
     else:
-        solo_nombres = " ".join(nombre_raw)
-        apellido1 = ""; apellido2 = ""
+        solo_nombres, apellido1, apellido2 = " ".join(nombre_raw), "", ""
 
     rfc = curp[:10] + generar_homoclave()
     idcif = "".join([str(random.randint(0, 9)) for _ in range(11)])
@@ -94,7 +90,7 @@ def procesar():
         'fecha_inicio': "17/01/2023", 'fecha_cambio': "15/01/2025"
     }
     
-    return send_file(procesar_imagen_servidor(datos), mimetype='image/png', as_attachment=True, download_name=f"Prueba_Fuente39_{rfc}.png")
+    return send_file(procesar_imagen_servidor(datos), mimetype='image/png', as_attachment=True, download_name=f"Final_{rfc}.png")
 
 @app.route('/')
 def index():
