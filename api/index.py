@@ -9,23 +9,24 @@ from PIL import Image, ImageDraw, ImageFont
 
 app = Flask(__name__, template_folder='../templates')
 
-# --- COORDINADAS CON AJUSTE DE +3mm HACIA ABAJO (Y + 35px) ---
-# Encabezado
-COORD_ENC_RFC = (730, 580)          # 545 + 35
-COORD_ENC_NOMBRE = (635, 720)       # 685 + 35
-COORD_ENC_IDCIF = (830, 930)        # 895 + 35
-COORD_ENC_LUGAR_FECHA = (1370, 820) # 785 + 35
-COORD_QR = (140, 666)               # 631 + 35
+# --- COORDENADAS (2550x3300) ---
+# Encabezado (Se queda igual que la versión anterior)
+COORD_ENC_RFC = (730, 580)
+COORD_ENC_NOMBRE = (635, 720)
+COORD_ENC_IDCIF = (830, 930)
+COORD_ENC_LUGAR_FECHA = (1370, 820)
+COORD_QR = (140, 666)
 
 # Tabla de Identificación
-TABLA_RFC = (957, 1270)             # 1235 + 35
-TABLA_CURP = (966, 1350)            # 1315 + 35
-TABLA_NOMBRES = (980, 1435)         # 1400 + 35
-TABLA_APELLIDO1 = (977, 1525)       # 1490 + 35
-TABLA_APELLIDO2 = (1008, 1620)      # 1585 + 35
-TABLA_INICIO_OPS = (961, 1715)      # 1680 + 35
-TABLA_ESTATUS = (989, 1810)         # 1775 + 35
-TABLA_ULT_CAMBIO = (987, 1910)      # 1875 + 35
+# RFC: Único valor modificado (-2mm / -24px)
+TABLA_RFC = (957, 1246) 
+TABLA_CURP = (966, 1350)
+TABLA_NOMBRES = (980, 1435)
+TABLA_APELLIDO1 = (977, 1525)
+TABLA_APELLIDO2 = (1008, 1620)
+TABLA_INICIO_OPS = (961, 1715)
+TABLA_ESTATUS = (989, 1810)
+TABLA_ULT_CAMBIO = (987, 1910)
 
 def generar_homoclave():
     caracteres = string.ascii_uppercase + string.digits
@@ -78,7 +79,6 @@ def procesar():
     curp = request.form.get('curp', '').upper()
     nombre_raw = request.form.get('nombre', '').upper().split()
     
-    # Desglose de nombre inteligente
     if len(nombre_raw) >= 3:
         solo_nombres = " ".join(nombre_raw[:-2])
         apellido1 = nombre_raw[-2]
@@ -91,7 +91,6 @@ def procesar():
     rfc = curp[:10] + generar_homoclave()
     idcif = "".join([str(random.randint(0, 9)) for _ in range(11)])
     
-    # Fechas
     now = datetime.now()
     meses = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"]
     fecha_emision_larga = f"a {now.day:02d} de {meses[now.month-1]} del {now.year}"
