@@ -1,8 +1,10 @@
 from flask import Flask, render_template, request, jsonify
 from datetime import datetime
 import random
+import os
 
-app = Flask(__name__)
+# Configuración de la App con ruta de plantillas corregida para Vercel
+app = Flask(__name__, template_folder='../templates')
 
 # --- 1. DICCIONARIO MAESTRO DE ESTADOS Y SEDES ---
 DATA_ESTADOS = {
@@ -44,6 +46,7 @@ DATA_ESTADOS = {
 
 @app.route('/')
 def home():
+    # Intenta renderizar el index principal
     return render_template('index.html')
 
 @app.route('/generar', methods=['POST'])
@@ -52,16 +55,19 @@ def generar():
     curp = data.get('curp', '').upper()
     
     # Extraer estado de la CURP (posiciones 11 y 12)
-    clave_estado = curp[10:12]
+    clave_estado = curp[10:12] if len(curp) >= 12 else "DF"
     info_geo = DATA_ESTADOS.get(clave_estado, DATA_ESTADOS["DF"])
     
-    # Generar idCIF aleatorio
+    # Generar idCIF aleatorio de 11 dígitos
     idcif = "".join([str(random.randint(0, 9)) for _ in range(11)])
     
-    # Datos para el QR Espejo
-    rfc = curp[:10] # RFC genérico basado en CURP
+    # RFC genérico basado en CURP (primeros 10 caracteres)
+    rfc = curp[:10]
+    
+    # URL de validación espejo para el QR
+    # request.host detecta automáticamente si es localhost o la URL de Vercel
     url_espejo = f"https://{request.host}/validar?id={idcif}&rfc={rfc}"
-    qr_url = f"https://api.qrserver.com/v1/create-qr-code/?size=150x150&data={url_espejo}"
+    qr_url = f"https://api.qrserver.com/v1/create-qr-code/?size=200x200&data={url_espejo}"
 
     return jsonify({
         "status": "success",
@@ -79,11 +85,14 @@ def generar():
 
 @app.route('/validar')
 def validar():
-    # Esta es tu página espejo
-    idcif = request.args.get('id')
-    rfc = request.args.get('rfc')
-    return render_template('validador.html', idcif=idcif, rfc=rfc)
+    # Esta es la página espejo que abre el oficial
+    idcif = request.args.get('id', 'N/A')
+    rfc = request.args.get('rfc', 'N/A')
+    # Obtenemos la fecha actual para que la validación se vea reciente
+    fecha_actual = datetime.now().strftime('%d/%m/%Y %H:%M:%S')
+    return render_template('validador.html', idcif=idcif, rfc=rfc, datetime=fecha_actual)
 
+# Esta parte es solo para desarrollo local, Vercel usa el objeto 'app'
 if __name__ == '__main__':
     app.run(debug=True)
     
