@@ -9,8 +9,8 @@ from PIL import Image, ImageDraw, ImageFont
 
 app = Flask(__name__, template_folder='../templates')
 
-# --- CONFIGURACIÓN TOTAL A 39 ---
-TAMANO_FIXED = 39
+# --- CONFIGURACIÓN TOTAL A 45 ---
+TAMANO_FIXED = 45
 
 # Coordenadas (Mapeo verificado)
 COORD_ENC_RFC = (730, 580); COORD_ENC_NOMBRE = (635, 720); COORD_ENC_IDCIF = (830, 884)
