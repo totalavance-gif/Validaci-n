@@ -11,10 +11,10 @@ app = Flask(__name__, template_folder='../templates')
 # --- CONFIGURACIÓN GLOBAL ---
 TAMANO_FUENTE = 39
 
-# --- COORDENADAS: IDENTIFICACIÓN (ENCABEZADO Y TABLA 1) ---
+# --- COORDENADAS: IDENTIFICACIÓN ---
 COORD_ENC_RFC = (730, 580)
 COORD_ENC_NOMBRE = (635, 720)
-COORD_ENC_IDCIF = (830, 884)  # Bajado 2mm previos
+COORD_ENC_IDCIF = (830, 884)
 COORD_ENC_LUGAR_FECHA = (1370, 820)
 COORD_QR_POS = (140, 596)
 
@@ -27,28 +27,26 @@ TABLA_INICIO_OPS = (961, 1715)
 TABLA_ESTATUS = (989, 1810)
 TABLA_ULT_CAMBIO = (987, 1910)
 
-# --- COORDENADAS: DOMICILIO FISCAL (AJUSTES DE PRECISION) ---
-# Y_R: Filas (Subidas 1mm o 2mm según tu instrucción)
-# X: Columnas (Movidas a la derecha para no tocar los dos puntos)
-
-Y_R1 = 2244  # CP y Tipo Vialidad (Sube 1mm)
-Y_R2 = 2344  # Vialidad y Num Ext (Sube 1mm)
-Y_R3 = 2444  # Num Int y Colonia (Sube 1mm)
-Y_R4 = 2532  # Localidad y Municipio (Sube 2mm)
-Y_R5 = 2632  # Entidad y Calles (Sube 2mm)
+# --- COORDENADAS: DOMICILIO FISCAL (AJUSTE FINAL) ---
+# Filas Y
+Y_R1 = 2244  # CP y Tipo Vialidad
+Y_R2 = 2344  # Vialidad y Num Ext
+Y_R3 = 2444  # Num Int y Colonia
+Y_R4 = 2532  # Localidad y Municipio
+Y_R5 = 2632  # Entidad y Calles
 
 # Columna Izquierda (X)
-X_CP = 342          # +1mm derecha
-X_VIALIDAD = 432    # +1mm derecha
-X_INTERIOR = 372    # +1mm derecha
-X_LOCALIDAD = 482   # +1mm derecha
-X_ENTIDAD = 576     # +3mm derecha
+X_CP = 342          
+X_VIALIDAD = 432    
+X_INTERIOR = 372    
+X_LOCALIDAD = 482   
+X_ENTIDAD = 636     # Ajustado: 576 + 60px (5mm)
 
 # Columna Derecha (X)
 X_TIPO_V = 1640     
 X_EXTERIOR = 1650   
 X_COLONIA = 1730    
-X_MUNICIPIO = 1956  # +3mm derecha
+X_MUNICIPIO = 2016  # Ajustado: 1956 + 60px (5mm)
 X_CALLES = 1530     
 
 def generar_homoclave():
@@ -81,24 +79,19 @@ def procesar_imagen_servidor(datos):
     draw.text(TABLA_ESTATUS, "ACTIVO", fill="black", font=font)
     draw.text(TABLA_ULT_CAMBIO, datos['fecha_cambio'], fill="black", font=font)
 
-    # 2. DIBUJAR DOMICILIO (CON AJUSTES SOLICITADOS)
-    # Fila 1
+    # 2. DIBUJAR DOMICILIO
     draw.text((X_CP, Y_R1), "06300", fill="black", font=font)
     draw.text((X_TIPO_V, Y_R1), "AVENIDA", fill="black", font=font)
-    # Fila 2
     draw.text((X_VIALIDAD, Y_R2), "AVENIDA HIDALGO", fill="black", font=font)
     draw.text((X_EXTERIOR, Y_R2), "77", fill="black", font=font)
-    # Fila 3
     draw.text((X_INTERIOR, Y_R3), "S/N", fill="black", font=font)
     draw.text((X_COLONIA, Y_R3), "GUERRERO", fill="black", font=font)
-    # Fila 4
     draw.text((X_LOCALIDAD, Y_R4), "CIUDAD DE MEXICO", fill="black", font=font)
     draw.text((X_MUNICIPIO, Y_R4), "CUAUHTEMOC", fill="black", font=font)
-    # Fila 5
     draw.text((X_ENTIDAD, Y_R5), "CIUDAD DE MEXICO", fill="black", font=font)
     draw.text((X_CALLES, Y_R5), "ENTRE CALLE REFORMA Y CALLE SOTO", fill="black", font=font)
 
-    # 3. REFERENCIA QR (CUADRO NEGRO)
+    # 3. REFERENCIA QR
     draw.rectangle([COORD_QR_POS, (COORD_QR_POS[0]+405, COORD_QR_POS[1]+405)], fill="black")
 
     img_io = io.BytesIO()
