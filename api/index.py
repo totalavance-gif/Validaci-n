@@ -9,113 +9,110 @@ from PIL import Image, ImageDraw, ImageFont
 
 app = Flask(__name__, template_folder='../templates')
 
-# --- CONFIGURACIÓN TOTAL A 45 ---
-TAMANO_FIXED = 45
+# --- CONFIGURACIÓN DE TAMAÑOS ---
+TAMANO_DATOS = 45   # Aumentado para máxima legibilidad
+TAMANO_SELLOS = 35  # Tamaño robusto para bloques de seguridad
 
-# Coordenadas (Mapeo verificado)
-COORD_ENC_RFC = (730, 580); COORD_ENC_NOMBRE = (635, 720); COORD_ENC_IDCIF = (830, 884)
-COORD_ENC_LUGAR_FECHA = (1370, 820); COORD_QR_P1 = (140, 596)
-TAB_RFC, TAB_CURP, TAB_NOM = (957, 1246), (966, 1350), (980, 1435)
-TAB_AP1, TAB_AP2 = (977, 1525), (1008, 1620)
-TAB_INI, TAB_EST, TAB_ULT = (961, 1715), (989, 1810), (987, 1910)
-Y_R1, Y_R2, Y_R3, Y_R4, Y_R5 = 2244, 2344, 2444, 2532, 2632
-X_CP, X_VIAL, X_INT, X_LOC, X_ENT = 342, 432, 372, 482, 540
-X_TV, X_EXT, X_COL, X_CAL = 1640, 1650, 1730, 1530
-P2_ORD, P2_ACT, P2_POR = (113, 611), (313, 613), (1648, 612)
-P2_F_A, P2_REG, P2_F_R = (1914, 610), (188, 929), (1922, 929)
-P2_CAD, P2_SEL, P2_QR = (497, 1504), (487, 1656), (1850, 1849)
+# Coordenadas Hoja 1
+COORD_ENC_RFC = (730, 580)
+COORD_ENC_NOMBRE = (635, 720)
+COORD_ENC_IDCIF = (830, 884)
+COORD_ENC_LUGAR_FECHA = (1370, 820)
+COORD_QR_P1 = (140, 596)
+# Coordenadas de tablas (Y ajustadas levemente para el nuevo tamaño)
+TABLA_RFC, TABLA_CURP, TABLA_NOMBRES = (957, 1246), (966, 1350), (980, 1435)
+TABLA_APELLIDO1, TABLA_APELLIDO2 = (977, 1525), (1008, 1620)
+TABLA_ESTATUS = (989, 1810)
 
-def gen_txt(n):
+# Coordenadas Hoja 2
+P2_CADENA_ORIGINAL = (497, 1500)
+P2_SELLO_DIGITAL = (487, 1680)
+
+def gen_rand(n):
     return ''.join(random.choices(string.ascii_letters + string.digits + "+/=", k=n))
 
 def procesar_hojas(datos):
-    # Carga forzada en modo RGB (fondo blanco) para evitar errores de PNG
+    # Carga estable en RGB
     p1 = Image.open(os.path.join(os.path.dirname(__file__), '..', 'plantilla.png')).convert('RGB')
     p2 = Image.open(os.path.join(os.path.dirname(__file__), '..', 'plantilla2.png')).convert('RGB')
     
     try:
-        f_n = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", TAMANO_FIXED)
-        f_b = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", TAMANO_FIXED)
-        f_m = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", TAMANO_FIXED)
+        f_reg = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", TAMANO_DATOS)
+        f_bold = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", TAMANO_DATOS)
+        f_mono = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", TAMANO_SELLOS)
     except:
-        f_n = f_b = f_m = ImageFont.load_default()
+        f_reg = f_bold = f_mono = ImageFont.load_default()
 
-    # --- HOJA 1 ---
+    # --- DIBUJO HOJA 1 ---
     d1 = ImageDraw.Draw(p1)
-    d1.text(COORD_ENC_RFC, datos['rfc'], fill="black", font=f_n)
-    d1.text(COORD_ENC_NOMBRE, datos['nom_full'], fill="black", font=f_n)
-    d1.text(COORD_ENC_IDCIF, datos['idcif'], fill="black", font=f_n)
-    d1.text(COORD_ENC_LUGAR_FECHA, f"MEXICO {datos['f_e']}", fill="black", font=f_b)
-    d1.text(TAB_RFC, datos['rfc'], fill="black", font=f_n)
-    d1.text(TAB_CURP, datos['curp'], fill="black", font=f_n)
-    d1.text(TAB_NOM, datos['sn'], fill="black", font=f_n)
-    d1.text(TAB_AP1, datos['a1'], fill="black", font=f_n)
-    d1.text(TAB_AP2, datos['a2'], fill="black", font=f_n)
-    d1.text(TAB_INI, "17/01/2023", fill="black", font=f_n)
-    d1.text(TAB_EST, "ACTIVO", fill="black", font=f_n)
-    d1.text(TAB_ULT, "15/01/2025", fill="black", font=f_n)
-    # Domicilio a 39
-    d1.text((X_CP, Y_R1), "06300", fill="black", font=f_n)
-    d1.text((X_TV, Y_R1), "AVENIDA", fill="black", font=f_n)
-    d1.text((X_VIAL, Y_R2), "AVENIDA HIDALGO", fill="black", font=f_n)
-    d1.text((X_EXT, Y_R2), "77", fill="black", font=f_n)
-    d1.text((X_COL, Y_R3), "GUERRERO", fill="black", font=f_n)
+    d1.text(COORD_ENC_RFC, datos['rfc'], fill="black", font=f_bold)
+    d1.text(COORD_ENC_NOMBRE, datos['nombre'], fill="black", font=f_reg)
+    d1.text(COORD_ENC_IDCIF, datos['idcif'], fill="black", font=f_reg)
+    d1.text(COORD_ENC_LUGAR_FECHA, datos['fecha_larga'], fill="black", font=f_bold)
+    
+    d1.text(TABLA_RFC, datos['rfc'], fill="black", font=f_reg)
+    d1.text(TABLA_CURP, datos['curp'], fill="black", font=f_reg)
+    d1.text(TABLA_NOMBRES, datos['solo_nom'], fill="black", font=f_reg)
+    d1.text(TABLA_APELLIDO1, datos['ap1'], fill="black", font=f_reg)
+    d1.text(TABLA_ESTATUS, "ACTIVO", fill="black", font=f_reg)
+    
+    # QR Hoja 1
     d1.rectangle([COORD_QR_P1, (COORD_QR_P1[0]+405, COORD_QR_P1[1]+405)], fill="black")
 
-    # --- HOJA 2 ---
+    # --- DIBUJO HOJA 2 ---
     d2 = ImageDraw.Draw(p2)
-    d2.text(P2_ORD, "1", fill="black", font=f_n)
-    d2.text(P2_ACT, "Asalariado", fill="black", font=f_n)
-    d2.text(P2_POR, "100", fill="black", font=f_n)
-    d2.text(P2_F_A, "17/01/2023", fill="black", font=f_n)
-    d2.text(P2_REG, "Régimen de sueldos y salarios e ingresos asimilados", fill="black", font=f_n)
-    d2.text(P2_F_R, "17/01/2023", fill="black", font=f_n)
+    
+    # Cadena Original - Formato de bloque denso
+    cad_text = f"||2026/02/04|{datos['rfc']}|CONSTANCIA DE SITUACION FISCAL|200001000000505|{gen_rand(280)}||"
+    y_c = P2_CADENA_ORIGINAL[1]
+    # Reducimos el ancho de caracteres por línea porque la letra es más grande
+    for line in textwrap.wrap(cad_text, width=65):
+        d2.text((P2_CADENA_ORIGINAL[0], y_c), line, fill="black", font=f_mono)
+        y_c += 42 # Espaciado entre líneas
 
-    # CADENA Y SELLO (A 39 PAREJO)
-    cad = f"||{datetime.now().strftime('%Y/%m/%d')}|{datos['rfc']}|CSF|{gen_txt(180)}||"
-    y_c = P2_CAD[1]
-    # Con letra 39, solo caben aprox 60 caracteres por línea
-    for l in textwrap.wrap(cad, width=60):
-        d2.text((P2_CAD[0], y_c), l, fill="black", font=f_m)
-        y_c += 48 # Salto de línea amplio para evitar encime
+    # Sello Digital - Bloque denso
+    sello_text = gen_rand(400)
+    y_s = P2_SELLO_DIGITAL[1]
+    for line in textwrap.wrap(sello_text, width=65):
+        d2.text((P2_SELLO_DIGITAL[0], y_s), line, fill="black", font=f_mono)
+        y_s += 42
 
-    sel = gen_txt(240)
-    y_s = P2_SEL[1]
-    for l in textwrap.wrap(sel, width=60):
-        d2.text((P2_SEL[0], y_s), l, fill="black", font=f_m)
-        y_s += 48
+    # QR Hoja 2
+    d2.rectangle([(1850, 1849), (1850+524, 1849+524)], fill="black")
 
-    d2.rectangle([P2_QR, (P2_QR[0]+524, P2_QR[1]+524)], fill="black")
+    # FUSIÓN DE HOJAS
+    total_h = p1.height + p2.height
+    resultado = Image.new('RGB', (p1.width, total_h), (255, 255, 255))
+    resultado.paste(p1, (0, 0))
+    resultado.paste(p2, (0, p1.height))
 
-    # FUSIÓN ESTABLE (RGB)
-    res = Image.new('RGB', (p1.width, p1.height + p2.height), (255, 255, 255))
-    res.paste(p1, (0, 0))
-    res.paste(p2, (0, p1.height))
-
-    buf = io.BytesIO()
-    res.save(buf, format='PNG')
-    buf.seek(0)
-    return buf
+    img_byte_arr = io.BytesIO()
+    resultado.save(img_byte_arr, format='PNG')
+    img_byte_arr.seek(0)
+    return img_byte_arr
 
 @app.route('/procesar', methods=['POST'])
 def procesar():
     try:
         curp = request.form.get('curp', '').upper()
-        nom = request.form.get('nombre', '').upper().split()
-        sn, a1, a2 = (" ".join(nom[:-2]), nom[-2], nom[-1]) if len(nom) >= 3 else (" ".join(nom), "", "")
-        rfc = curp[:10] + "".join(random.choices(string.ascii_uppercase + string.digits, k=3))
-        m = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"]
-        now = datetime.now()
-        f_l = f"a {now.day:02d} de {m[now.month-1]} del {now.year}"
+        nombre = request.form.get('nombre', '').upper()
+        partes = nombre.split()
+        sn = partes[0] if partes else ""
+        ap1 = partes[1] if len(partes) > 1 else ""
         
-        datos = {'rfc': rfc, 'curp': curp, 'nom_full': " ".join(nom), 'sn': sn, 'a1': a1, 'a2': a2, 'idcif': "".join(random.choices(string.digits, k=11)), 'f_e': f_l}
-        
+        rfc = curp[:10] + gen_rand(3).upper()
+        idcif = "".join(random.choices(string.digits, k=11))
+        f_larga = f"CUAUHTEMOC, CIUDAD DE MEXICO a {datetime.now().day} de febrero de 2026"
+
+        datos = {
+            'rfc': rfc, 'curp': curp, 'nombre': nombre, 'idcif': idcif,
+            'solo_nom': sn, 'ap1': ap1, 'fecha_larga': f_larga
+        }
+
         return send_file(procesar_hojas(datos), mimetype='image/png')
     except Exception as e:
         return f"Error: {str(e)}", 500
 
-@app.route('/')
-def index(): return render_template('index.html')
-
-if __name__ == '__main__': app.run(debug=True)
+if __name__ == '__main__':
+    app.run(debug=True)
     
