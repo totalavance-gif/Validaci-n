@@ -8,15 +8,13 @@ from PIL import Image, ImageDraw, ImageFont
 
 app = Flask(__name__, template_folder='../templates')
 
-# --- COORDENADAS CALIBRADAS ---
+# --- COORDENADAS SECCIÓN IDENTIFICACIÓN ---
 COORD_ENC_RFC = (730, 580)
 COORD_ENC_NOMBRE = (635, 720)
-# Se baja 2mm respecto a la versión anterior (estaba en 860, ahora 884)
-COORD_ENC_IDCIF = (830, 884)        
+COORD_ENC_IDCIF = (830, 884) # Ajustado -2mm como pediste anteriormente
 COORD_ENC_LUGAR_FECHA = (1370, 820)
-COORD_QR_POS = (140, 596)           
+COORD_QR_POS = (140, 596)
 
-# Tabla de Datos
 TABLA_RFC = (957, 1246) 
 TABLA_CURP = (966, 1350)
 TABLA_NOMBRES = (980, 1435)
@@ -25,6 +23,19 @@ TABLA_APELLIDO2 = (1008, 1620)
 TABLA_INICIO_OPS = (961, 1715)
 TABLA_ESTATUS = (989, 1810)
 TABLA_ULT_CAMBIO = (987, 1910)
+
+# --- NUEVAS COORDENADAS: DOMICILIO FISCAL ---
+DOM_CP = (957, 2255)
+DOM_VIALIDAD = (957, 2355)
+DOM_NUM_INT = (957, 2455)
+DOM_LOCALIDAD = (957, 2555)
+DOM_ENTIDAD = (957, 2655)
+
+DOM_TIPO_V = (1950, 2255)
+DOM_NUM_EXT = (1950, 2355)
+DOM_COLONIA = (1950, 2455)
+DOM_MUNICIPIO = (1950, 2555)
+DOM_CALLES = (1950, 2655)
 
 def generar_homoclave():
     return ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(3))
@@ -42,13 +53,12 @@ def procesar_imagen_servidor(datos):
         font_normal = ImageFont.load_default(size=tamano_fuente)
         font_bold = ImageFont.load_default(size=tamano_fuente)
 
-    # 1. Dibujar Textos de Encabezado
+    # 1. Identificación
     draw.text(COORD_ENC_RFC, datos['rfc'], fill="black", font=font_normal)
     draw.text(COORD_ENC_NOMBRE, datos['nombre_completo'], fill="black", font=font_normal)
     draw.text(COORD_ENC_IDCIF, datos['idcif'], fill="black", font=font_normal)
     draw.text(COORD_ENC_LUGAR_FECHA, f"CUAUHTEMOC, CIUDAD DE MEXICO {datos['fecha_emision_larga']}", fill="black", font=font_bold)
-
-    # 2. Dibujar Textos de Tabla
+    
     draw.text(TABLA_RFC, datos['rfc'], fill="black", font=font_normal)
     draw.text(TABLA_CURP, datos['curp'], fill="black", font=font_normal)
     draw.text(TABLA_NOMBRES, datos['solo_nombres'], fill="black", font=font_normal)
@@ -58,7 +68,20 @@ def procesar_imagen_servidor(datos):
     draw.text(TABLA_ESTATUS, "ACTIVO", fill="black", font=font_normal)
     draw.text(TABLA_ULT_CAMBIO, datos['fecha_cambio'], fill="black", font=font_normal)
 
-    # 3. Cuadro Negro del QR (Referencia)
+    # 2. Domicilio Fiscal (Autogenerado)
+    draw.text(DOM_CP, "06300", fill="black", font=font_normal)
+    draw.text(DOM_VIALIDAD, "AVENIDA HIDALGO", fill="black", font=font_normal)
+    draw.text(DOM_NUM_INT, "S/N", fill="black", font=font_normal)
+    draw.text(DOM_LOCALIDAD, "CIUDAD DE MEXICO", fill="black", font=font_normal)
+    draw.text(DOM_ENTIDAD, "CIUDAD DE MEXICO", fill="black", font=font_normal)
+    
+    draw.text(DOM_TIPO_V, "AVENIDA", fill="black", font=font_normal)
+    draw.text(DOM_NUM_EXT, "77", fill="black", font=font_normal)
+    draw.text(DOM_COLONIA, "GUERRERO", fill="black", font=font_normal)
+    draw.text(DOM_MUNICIPIO, "CUAUHTEMOC", fill="black", font=font_normal)
+    draw.text(DOM_CALLES, "ENTRE CALLE REFORMA Y CALLE SOTO", fill="black", font=font_normal)
+
+    # 3. QR (Referencia)
     draw.rectangle([COORD_QR_POS, (COORD_QR_POS[0]+405, COORD_QR_POS[1]+405)], fill="black")
 
     img_io = io.BytesIO()
@@ -90,9 +113,5 @@ def procesar():
         'fecha_inicio': "17/01/2023", 'fecha_cambio': "15/01/2025"
     }
     
-    return send_file(procesar_imagen_servidor(datos), mimetype='image/png', as_attachment=True, download_name=f"Final_{rfc}.png")
-
-@app.route('/')
-def index():
-    return render_template('index.html')
+    return send_file(procesar_imagen_servidor(datos), mimetype='image/png', as_attachment=True, download_name=f"Mapeo_Domicilio_{rfc}.png")
     
