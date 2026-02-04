@@ -8,31 +8,45 @@ from PIL import Image, ImageDraw, ImageFont
 
 app = Flask(__name__, template_folder='../templates')
 
-# --- CONFIGURACIÓN DE FUENTES Y TAMAÑO ---
+# --- CONFIGURACIÓN DE FUENTES ---
 TAMANO_FUENTE = 39
 
-# --- COORDENADAS BASE (EJE Y) PARA DOMICILIO ---
-# Ajustadas para que el texto no "flote" y se vea natural tras los dos puntos
-EJE_Y_R1 = 2256  # CP y Tipo Vialidad
-EJE_Y_R2 = 2356  # Nombre Vialidad y Num Exterior
-EJE_Y_R3 = 2456  # Num Interior y Colonia
-EJE_Y_R4 = 2556  # Localidad y Municipio
-EJE_Y_R5 = 2656  # Entidad y Entre Calle
+# --- COORDENADAS DE IDENTIFICACIÓN (ENCABEZADO Y TABLA 1) ---
+COORD_ENC_RFC = (730, 580)
+COORD_ENC_NOMBRE = (635, 720)
+COORD_ENC_IDCIF = (830, 884)
+COORD_ENC_LUGAR_FECHA = (1370, 820)
+COORD_QR_POS = (140, 596)
 
-# --- PUNTOS DE INICIO X (Donde terminan los ":" aproximadamente) ---
+TABLA_RFC = (957, 1246) 
+TABLA_CURP = (966, 1350)
+TABLA_NOMBRES = (980, 1435)
+TABLA_APELLIDO1 = (977, 1525)
+TABLA_APELLIDO2 = (1008, 1620)
+TABLA_INICIO_OPS = (961, 1715)
+TABLA_ESTATUS = (989, 1810)
+TABLA_ULT_CAMBIO = (987, 1910)
+
+# --- COORDENADAS DOMICILIO (ALINEADAS TRAS LOS DOS PUNTOS) ---
 # Columna Izquierda
-X_CP = 335
-X_VIALIDAD = 425
-X_INTERIOR = 365
-X_LOCALIDAD = 475
-X_ENTIDAD = 545
+X_CP = 330
+X_VIALIDAD = 420
+X_INTERIOR = 360
+X_LOCALIDAD = 470
+X_ENTIDAD = 540
 
 # Columna Derecha
-X_TIPO_V = 1635
-X_EXTERIOR = 1645
-X_COLONIA = 1735
-X_MUNICIPIO = 1915
-X_CALLES = 1535
+X_TIPO_V = 1640
+X_EXTERIOR = 1650
+X_COLONIA = 1730
+X_MUNICIPIO = 1920
+X_CALLES = 1530
+
+# Filas Y
+Y_R1, Y_R2, Y_R3, Y_R4, Y_R5 = 2256, 2356, 2456, 2556, 2656
+
+def generar_homoclave():
+    return ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(3))
 
 def procesar_imagen_servidor(datos):
     base_path = os.path.join(os.path.dirname(__file__), '..', 'plantilla.png')
@@ -41,33 +55,74 @@ def procesar_imagen_servidor(datos):
     
     try:
         font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", TAMANO_FUENTE)
+        font_b = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", TAMANO_FUENTE)
     except:
         font = ImageFont.load_default(size=TAMANO_FUENTE)
+        font_b = ImageFont.load_default(size=TAMANO_FUENTE)
 
-    # --- DIBUJAR DATOS DE IDENTIFICACIÓN (Se mantienen igual) ---
-    # [Aquí van tus draw.text anteriores de RFC, Nombre, etc.]
+    # 1. IDENTIFICACIÓN
+    draw.text(COORD_ENC_RFC, datos['rfc'], fill="black", font=font)
+    draw.text(COORD_ENC_NOMBRE, datos['nombre_completo'], fill="black", font=font)
+    draw.text(COORD_ENC_IDCIF, datos['idcif'], fill="black", font=font)
+    draw.text(COORD_ENC_LUGAR_FECHA, f"CUAUHTEMOC, CIUDAD DE MEXICO {datos['fecha_emision_larga']}", fill="black", font=font_b)
+    
+    draw.text(TABLA_RFC, datos['rfc'], fill="black", font=font)
+    draw.text(TABLA_CURP, datos['curp'], fill="black", font=font)
+    draw.text(TABLA_NOMBRES, datos['solo_nombres'], fill="black", font=font)
+    draw.text(TABLA_APELLIDO1, datos['apellido1'], fill="black", font=font)
+    draw.text(TABLA_APELLIDO2, datos['apellido2'], fill="black", font=font)
+    draw.text(TABLA_INICIO_OPS, datos['fecha_inicio'], fill="black", font=font)
+    draw.text(TABLA_ESTATUS, "ACTIVO", fill="black", font=font)
+    draw.text(TABLA_ULT_CAMBIO, datos['fecha_cambio'], fill="black", font=font)
 
-    # --- DIBUJAR DATOS DE DOMICILIO FISCAL ALINEADOS ---
-    # Columna Izquierda
-    draw.text((X_CP, EJE_Y_R1), "06300", fill="black", font=font)
-    draw.text((X_VIALIDAD, EJE_Y_R2), "AVENIDA HIDALGO", fill="black", font=font)
-    draw.text((X_INTERIOR, EJE_Y_R3), "S/N", fill="black", font=font)
-    draw.text((X_LOCALIDAD, EJE_Y_R4), "CIUDAD DE MEXICO", fill="black", font=font)
-    draw.text((X_ENTIDAD, EJE_Y_R5), "CIUDAD DE MEXICO", fill="black", font=font)
+    # 2. DOMICILIO (ALINEACIÓN TRAS LOS PUNTOS)
+    draw.text((X_CP, Y_R1), "06300", fill="black", font=font)
+    draw.text((X_VIALIDAD, Y_R2), "AVENIDA HIDALGO", fill="black", font=font)
+    draw.text((X_INTERIOR, Y_R3), "S/N", fill="black", font=font)
+    draw.text((X_LOCALIDAD, Y_R4), "CIUDAD DE MEXICO", fill="black", font=font)
+    draw.text((X_ENTIDAD, Y_R5), "CIUDAD DE MEXICO", fill="black", font=font)
+    
+    draw.text((X_TIPO_V, Y_R1), "AVENIDA", fill="black", font=font)
+    draw.text((X_EXTERIOR, Y_R2), "77", fill="black", font=font)
+    draw.text((X_COLONIA, Y_R3), "GUERRERO", fill="black", font=font)
+    draw.text((X_MUNICIPIO, Y_R4), "CUAUHTEMOC", fill="black", font=font)
+    draw.text((X_CALLES, Y_R5), "ENTRE CALLE REFORMA Y CALLE SOTO", fill="black", font=font)
 
-    # Columna Derecha
-    draw.text((X_TIPO_V, EJE_Y_R1), "AVENIDA", fill="black", font=font)
-    draw.text((X_EXTERIOR, EJE_Y_R2), "77", fill="black", font=font)
-    draw.text((X_COLONIA, EJE_Y_R3), "GUERRERO", fill="black", font=font)
-    draw.text((X_MUNICIPIO, EJE_Y_R4), "CUAUHTEMOC", fill="black", font=font)
-    draw.text((X_CALLES, EJE_Y_R5), "ENTRE CALLE REFORMA Y CALLE SOTO", fill="black", font=font)
-
-    # --- QR DE REFERENCIA ---
-    draw.rectangle([(140, 596), (140+405, 596+405)], fill="black")
+    # 3. QR REFERENCIA
+    draw.rectangle([COORD_QR_POS, (COORD_QR_POS[0]+405, COORD_QR_POS[1]+405)], fill="black")
 
     img_io = io.BytesIO()
     img.convert('RGB').save(img_io, 'PNG')
     img_io.seek(0)
     return img_io
 
-# [Resto de las rutas de Flask se mantienen igual]
+@app.route('/procesar', methods=['POST'])
+def procesar():
+    curp = request.form.get('curp', '').upper()
+    nombre_raw = request.form.get('nombre', '').upper().split()
+    
+    if len(nombre_raw) >= 3:
+        solo_nombres, apellido1, apellido2 = " ".join(nombre_raw[:-2]), nombre_raw[-2], nombre_raw[-1]
+    else:
+        solo_nombres, apellido1, apellido2 = " ".join(nombre_raw), "", ""
+
+    rfc = curp[:10] + generar_homoclave()
+    idcif = "".join([str(random.randint(0, 9)) for _ in range(11)])
+    
+    now = datetime.now()
+    meses = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"]
+    fecha_emision_larga = f"a {now.day:02d} de {meses[now.month-1]} del {now.year}"
+
+    datos = {
+        'rfc': rfc, 'curp': curp, 'nombre_completo': " ".join(nombre_raw),
+        'solo_nombres': solo_nombres, 'apellido1': apellido1, 'apellido2': apellido2,
+        'idcif': idcif, 'fecha_emision_larga': fecha_emision_larga,
+        'fecha_inicio': "17/01/2023", 'fecha_cambio': "15/01/2025"
+    }
+    
+    return send_file(procesar_imagen_servidor(datos), mimetype='image/png', as_attachment=False, download_name=f"Constancia_{rfc}.png")
+
+@app.route('/')
+def index():
+    return render_template('index.html')
+    
