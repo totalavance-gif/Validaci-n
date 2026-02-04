@@ -9,16 +9,16 @@ from PIL import Image, ImageDraw, ImageFont
 
 app = Flask(__name__, template_folder='../templates')
 
-# --- COORDENADAS CALIBRADAS (2550x3300) ---
-# RFC: Ajustado 3mm a la derecha (635 + 35 = 670)
-COORD_RFC = (670, 545)
+# --- COORDENADAS RE-CALIBRADAS (2550x3300) ---
+# RFC: +5mm a la derecha (670 + 60 = 730)
+COORD_RFC = (730, 545)
 COORD_NOMBRE = (635, 685)
 COORD_IDCIF = (830, 895)
 COORD_LUGAR_FECHA = (1370, 785)
 COORD_QR = (140, 631) 
 
 def generar_homoclave():
-    # Genera 3 caracteres aleatorios (letras o números) para el RFC
+    # Genera 3 caracteres aleatorios para el RFC
     caracteres = string.ascii_uppercase + string.digits
     return ''.join(random.choice(caracteres) for _ in range(3))
 
@@ -27,6 +27,7 @@ def procesar_imagen_servidor(datos):
     img = Image.open(base_path).convert('RGBA')
     draw = ImageDraw.Draw(img)
     
+    # Tamaño solicitado: 39
     try:
         font_normal = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 39)
         font_bold = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 39)
@@ -34,12 +35,12 @@ def procesar_imagen_servidor(datos):
         font_normal = ImageFont.load_default(size=39)
         font_bold = ImageFont.load_default(size=39)
 
-    # 1. Dibujar RFC (con nueva posición y homoclave), Nombre e idCIF
+    # 1. Dibujar RFC, Nombre e idCIF
     draw.text(COORD_RFC, datos['rfc'], fill="black", font=font_normal)
     draw.text(COORD_NOMBRE, datos['nombre'], fill="black", font=font_normal)
     draw.text(COORD_IDCIF, datos['idcif'], fill="black", font=font_normal)
     
-    # 2. Dibujar Lugar y Fecha (EN NEGRITA)
+    # 2. Dibujar Lugar y Fecha (Único campo en NEGRITA)
     texto_lugar_fecha = f"CUAUHTEMOC, CIUDAD DE MEXICO {datos['fecha_larga']}"
     draw.text(COORD_LUGAR_FECHA, texto_lugar_fecha, fill="black", font=font_bold)
 
@@ -67,11 +68,11 @@ def procesar():
     curp = request.form.get('curp', '').upper()
     nombre = request.form.get('nombre', '').upper()
     
-    # RFC = 10 primeros de CURP + 3 de Homoclave
+    # RFC con Homoclave aleatoria
     rfc = curp[:10] + generar_homoclave()
     idcif = "".join([str(random.randint(0, 9)) for _ in range(11)])
     
-    # Formato de fecha larga
+    # Formato: a dd de mm del aaaa
     meses = ["enero", "febrero", "marzo", "abril", "mayo", "junio", 
              "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"]
     now = datetime.now()
