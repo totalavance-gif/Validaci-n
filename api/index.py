@@ -3,22 +3,30 @@ import io
 import random
 import string
 import requests
-from datetime import datetime
+from datetime import datetime, timedelta
 from flask import Flask, render_template, request, send_file
 from PIL import Image, ImageDraw, ImageFont
 
 app = Flask(__name__, template_folder='../templates')
 
-# --- COORDENADAS RE-CALIBRADAS (2550x3300) ---
-# RFC: +5mm a la derecha (670 + 60 = 730)
-COORD_RFC = (730, 545)
-COORD_NOMBRE = (635, 685)
-COORD_IDCIF = (830, 895)
-COORD_LUGAR_FECHA = (1370, 785)
-COORD_QR = (140, 631) 
+# --- MAPEO DE COORDENADAS RECALIBRADAS (2550x3300) ---
+COORD_ENC_RFC = (730, 545)
+COORD_ENC_NOMBRE = (635, 685)
+COORD_ENC_IDCIF = (830, 895)
+COORD_ENC_LUGAR_FECHA = (1370, 785)
+COORD_QR = (140, 631)
+
+# --- COORDENADAS DE LA TABLA (Basadas en tu Image Map) ---
+TABLA_RFC = (957, 1235)
+TABLA_CURP = (966, 1315)
+TABLA_NOMBRES = (980, 1400)
+TABLA_APELLIDO1 = (977, 1490)
+TABLA_APELLIDO2 = (1008, 1585)
+TABLA_INICIO_OPS = (961, 1680)
+TABLA_ESTATUS = (989, 1775)
+TABLA_ULT_CAMBIO = (987, 1875)
 
 def generar_homoclave():
-    # Genera 3 caracteres aleatorios para el RFC
     caracteres = string.ascii_uppercase + string.digits
     return ''.join(random.choice(caracteres) for _ in range(3))
 
@@ -27,7 +35,6 @@ def procesar_imagen_servidor(datos):
     img = Image.open(base_path).convert('RGBA')
     draw = ImageDraw.Draw(img)
     
-    # Tamaño solicitado: 39
     try:
         font_normal = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 39)
         font_bold = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 39)
@@ -35,16 +42,27 @@ def procesar_imagen_servidor(datos):
         font_normal = ImageFont.load_default(size=39)
         font_bold = ImageFont.load_default(size=39)
 
-    # 1. Dibujar RFC, Nombre e idCIF
-    draw.text(COORD_RFC, datos['rfc'], fill="black", font=font_normal)
-    draw.text(COORD_NOMBRE, datos['nombre'], fill="black", font=font_normal)
-    draw.text(COORD_IDCIF, datos['idcif'], fill="black", font=font_normal)
+    # 1. ENCABEZADO (Cédula)
+    draw.text(COORD_ENC_RFC, datos['rfc'], fill="black", font=font_normal)
+    draw.text(COORD_ENC_NOMBRE, datos['nombre_completo'], fill="black", font=font_normal)
+    draw.text(COORD_ENC_IDCIF, datos['idcif'], fill="black", font=font_normal)
     
-    # 2. Dibujar Lugar y Fecha (Único campo en NEGRITA)
-    texto_lugar_fecha = f"CUAUHTEMOC, CIUDAD DE MEXICO {datos['fecha_larga']}"
-    draw.text(COORD_LUGAR_FECHA, texto_lugar_fecha, fill="black", font=font_bold)
+    texto_lugar_fecha = f"CUAUHTEMOC, CIUDAD DE MEXICO {datos['fecha_emision_larga']}"
+    draw.text(COORD_ENC_LUGAR_FECHA, texto_lugar_fecha, fill="black", font=font_bold)
 
-    # 3. Pegar QR
+    # 2. TABLA DE DATOS DEL CONTRIBUYENTE
+    draw.text(TABLA_RFC, datos['rfc'], fill="black", font=font_normal)
+    draw.text(TABLA_CURP, datos['curp'], fill="black", font=font_normal)
+    draw.text(TABLA_NOMBRES, datos['solo_nombres'], fill="black", font=font_normal)
+    draw.text(TABLA_APELLIDO1, datos['apellido1'], fill="black", font=font_normal)
+    draw.text(TABLA_APELLIDO2, datos['apellido2'], fill="black", font=font_normal)
+    
+    # Datos automáticos
+    draw.text(TABLA_INICIO_OPS, datos['fecha_inicio'], fill="black", font=font_normal)
+    draw.text(TABLA_ESTATUS, "ACTIVO", fill="black", font=font_normal)
+    draw.text(TABLA_ULT_CAMBIO, datos['fecha_cambio'], fill="black", font=font_normal)
+
+    # 3. QR
     try:
         qr_req = requests.get(datos['qr_url'], timeout=10)
         qr_img = Image.open(io.BytesIO(qr_req.content)).convert('RGBA')
@@ -59,43 +77,49 @@ def procesar_imagen_servidor(datos):
     img_io.seek(0)
     return img_io
 
-@app.route('/')
-def home():
-    return render_template('index.html')
-
 @app.route('/procesar', methods=['POST'])
 def procesar():
     curp = request.form.get('curp', '').upper()
-    nombre = request.form.get('nombre', '').upper()
+    nombre_raw = request.form.get('nombre', '').upper().split()
     
-    # RFC con Homoclave aleatoria
+    # Lógica de nombres y apellidos (asumiendo: Nombre(s) Apellido1 Apellido2)
+    if len(nombre_raw) >= 3:
+        solo_nombres = " ".join(nombre_raw[:-2])
+        apellido1 = nombre_raw[-2]
+        apellido2 = nombre_raw[-1]
+    else:
+        solo_nombres = nombre_raw[0] if len(nombre_raw) > 0 else ""
+        apellido1 = nombre_raw[1] if len(nombre_raw) > 1 else ""
+        apellido2 = ""
+
     rfc = curp[:10] + generar_homoclave()
     idcif = "".join([str(random.randint(0, 9)) for _ in range(11)])
     
-    # Formato: a dd de mm del aaaa
-    meses = ["enero", "febrero", "marzo", "abril", "mayo", "junio", 
-             "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"]
+    # Fechas automáticas
     now = datetime.now()
-    fecha_larga = f"a {now.day:02d} de {meses[now.month-1]} del {now.year}"
+    meses = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"]
+    
+    fecha_emision_larga = f"a {now.day:02d} de {meses[now.month-1]} del {now.year}"
+    
+    # Inicio ops: hace 3 años (aproximado)
+    f_inicio = now - timedelta(days=365*3 + random.randint(0,30))
+    fecha_inicio_str = f_inicio.strftime('%d/%m/%Y')
+    
+    # Cambio estado: hace 1 año (aproximado)
+    f_cambio = now - timedelta(days=365 + random.randint(0,60))
+    fecha_cambio_str = f_cambio.strftime('%d/%m/%Y')
     
     url_val = f"https://{request.host}/validar?id={idcif}&rfc={rfc}"
     qr_api = f"https://api.qrserver.com/v1/create-qr-code/?size=500x500&data={url_val}"
 
     datos = {
-        'rfc': rfc, 
-        'nombre': nombre, 
-        'idcif': idcif, 
-        'fecha_larga': fecha_larga, 
+        'rfc': rfc, 'curp': curp, 'nombre_completo': " ".join(nombre_raw),
+        'solo_nombres': solo_nombres, 'apellido1': apellido1, 'apellido2': apellido2,
+        'idcif': idcif, 'fecha_emision_larga': fecha_emision_larga,
+        'fecha_inicio': fecha_inicio_str, 'fecha_cambio': fecha_cambio_str,
         'qr_url': qr_api
     }
     
     archivo = procesar_imagen_servidor(datos)
-    return send_file(archivo, mimetype='image/png', as_attachment=True, download_name=f"RFC_{rfc}.png")
-
-@app.route('/validar')
-def validar():
-    return render_template('validador.html', 
-                           idcif=request.args.get('id'), 
-                           rfc=request.args.get('rfc'), 
-                           datetime=datetime.now().strftime('%d/%m/%Y %H:%M:%S'))
+    return send_file(archivo, mimetype='image/png', as_attachment=True, download_name=f"Constancia_{rfc}.png")
     
