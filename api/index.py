@@ -9,22 +9,23 @@ from PIL import Image, ImageDraw, ImageFont
 
 app = Flask(__name__, template_folder='../templates')
 
-# --- MAPEO DE COORDENADAS RECALIBRADAS (2550x3300) ---
-COORD_ENC_RFC = (730, 545)
-COORD_ENC_NOMBRE = (635, 685)
-COORD_ENC_IDCIF = (830, 895)
-COORD_ENC_LUGAR_FECHA = (1370, 785)
-COORD_QR = (140, 631)
+# --- COORDINADAS CON AJUSTE DE +3mm HACIA ABAJO (Y + 35px) ---
+# Encabezado
+COORD_ENC_RFC = (730, 580)          # 545 + 35
+COORD_ENC_NOMBRE = (635, 720)       # 685 + 35
+COORD_ENC_IDCIF = (830, 930)        # 895 + 35
+COORD_ENC_LUGAR_FECHA = (1370, 820) # 785 + 35
+COORD_QR = (140, 666)               # 631 + 35
 
-# --- COORDENADAS DE LA TABLA (Basadas en tu Image Map) ---
-TABLA_RFC = (957, 1235)
-TABLA_CURP = (966, 1315)
-TABLA_NOMBRES = (980, 1400)
-TABLA_APELLIDO1 = (977, 1490)
-TABLA_APELLIDO2 = (1008, 1585)
-TABLA_INICIO_OPS = (961, 1680)
-TABLA_ESTATUS = (989, 1775)
-TABLA_ULT_CAMBIO = (987, 1875)
+# Tabla de Identificación
+TABLA_RFC = (957, 1270)             # 1235 + 35
+TABLA_CURP = (966, 1350)            # 1315 + 35
+TABLA_NOMBRES = (980, 1435)         # 1400 + 35
+TABLA_APELLIDO1 = (977, 1525)       # 1490 + 35
+TABLA_APELLIDO2 = (1008, 1620)      # 1585 + 35
+TABLA_INICIO_OPS = (961, 1715)      # 1680 + 35
+TABLA_ESTATUS = (989, 1810)         # 1775 + 35
+TABLA_ULT_CAMBIO = (987, 1910)      # 1875 + 35
 
 def generar_homoclave():
     caracteres = string.ascii_uppercase + string.digits
@@ -42,22 +43,18 @@ def procesar_imagen_servidor(datos):
         font_normal = ImageFont.load_default(size=39)
         font_bold = ImageFont.load_default(size=39)
 
-    # 1. ENCABEZADO (Cédula)
+    # 1. ENCABEZADO
     draw.text(COORD_ENC_RFC, datos['rfc'], fill="black", font=font_normal)
     draw.text(COORD_ENC_NOMBRE, datos['nombre_completo'], fill="black", font=font_normal)
     draw.text(COORD_ENC_IDCIF, datos['idcif'], fill="black", font=font_normal)
-    
-    texto_lugar_fecha = f"CUAUHTEMOC, CIUDAD DE MEXICO {datos['fecha_emision_larga']}"
-    draw.text(COORD_ENC_LUGAR_FECHA, texto_lugar_fecha, fill="black", font=font_bold)
+    draw.text(COORD_ENC_LUGAR_FECHA, f"CUAUHTEMOC, CIUDAD DE MEXICO {datos['fecha_emision_larga']}", fill="black", font=font_bold)
 
-    # 2. TABLA DE DATOS DEL CONTRIBUYENTE
+    # 2. TABLA
     draw.text(TABLA_RFC, datos['rfc'], fill="black", font=font_normal)
     draw.text(TABLA_CURP, datos['curp'], fill="black", font=font_normal)
     draw.text(TABLA_NOMBRES, datos['solo_nombres'], fill="black", font=font_normal)
     draw.text(TABLA_APELLIDO1, datos['apellido1'], fill="black", font=font_normal)
     draw.text(TABLA_APELLIDO2, datos['apellido2'], fill="black", font=font_normal)
-    
-    # Datos automáticos
     draw.text(TABLA_INICIO_OPS, datos['fecha_inicio'], fill="black", font=font_normal)
     draw.text(TABLA_ESTATUS, "ACTIVO", fill="black", font=font_normal)
     draw.text(TABLA_ULT_CAMBIO, datos['fecha_cambio'], fill="black", font=font_normal)
@@ -71,9 +68,8 @@ def procesar_imagen_servidor(datos):
     except:
         pass
 
-    final_img = img.convert('RGB')
     img_io = io.BytesIO()
-    final_img.save(img_io, 'PNG')
+    img.convert('RGB').save(img_io, 'PNG')
     img_io.seek(0)
     return img_io
 
@@ -82,32 +78,26 @@ def procesar():
     curp = request.form.get('curp', '').upper()
     nombre_raw = request.form.get('nombre', '').upper().split()
     
-    # Lógica de nombres y apellidos (asumiendo: Nombre(s) Apellido1 Apellido2)
+    # Desglose de nombre inteligente
     if len(nombre_raw) >= 3:
         solo_nombres = " ".join(nombre_raw[:-2])
         apellido1 = nombre_raw[-2]
         apellido2 = nombre_raw[-1]
     else:
-        solo_nombres = nombre_raw[0] if len(nombre_raw) > 0 else ""
-        apellido1 = nombre_raw[1] if len(nombre_raw) > 1 else ""
+        solo_nombres = " ".join(nombre_raw)
+        apellido1 = ""
         apellido2 = ""
 
     rfc = curp[:10] + generar_homoclave()
     idcif = "".join([str(random.randint(0, 9)) for _ in range(11)])
     
-    # Fechas automáticas
+    # Fechas
     now = datetime.now()
     meses = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"]
-    
     fecha_emision_larga = f"a {now.day:02d} de {meses[now.month-1]} del {now.year}"
     
-    # Inicio ops: hace 3 años (aproximado)
     f_inicio = now - timedelta(days=365*3 + random.randint(0,30))
-    fecha_inicio_str = f_inicio.strftime('%d/%m/%Y')
-    
-    # Cambio estado: hace 1 año (aproximado)
     f_cambio = now - timedelta(days=365 + random.randint(0,60))
-    fecha_cambio_str = f_cambio.strftime('%d/%m/%Y')
     
     url_val = f"https://{request.host}/validar?id={idcif}&rfc={rfc}"
     qr_api = f"https://api.qrserver.com/v1/create-qr-code/?size=500x500&data={url_val}"
@@ -116,10 +106,9 @@ def procesar():
         'rfc': rfc, 'curp': curp, 'nombre_completo': " ".join(nombre_raw),
         'solo_nombres': solo_nombres, 'apellido1': apellido1, 'apellido2': apellido2,
         'idcif': idcif, 'fecha_emision_larga': fecha_emision_larga,
-        'fecha_inicio': fecha_inicio_str, 'fecha_cambio': fecha_cambio_str,
+        'fecha_inicio': f_inicio.strftime('%d/%m/%Y'), 'fecha_cambio': f_cambio.strftime('%d/%m/%Y'),
         'qr_url': qr_api
     }
     
-    archivo = procesar_imagen_servidor(datos)
-    return send_file(archivo, mimetype='image/png', as_attachment=True, download_name=f"Constancia_{rfc}.png")
+    return send_file(procesar_imagen_servidor(datos), mimetype='image/png', as_attachment=True, download_name=f"Constancia_{rfc}.png")
     
