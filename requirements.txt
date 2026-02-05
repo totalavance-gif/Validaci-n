@@ -1,4 +1,2 @@
-Flask
-fpdf2
-qrcode
-Pillow
+flask==3.0.2
+pymupdf==1.23.8
