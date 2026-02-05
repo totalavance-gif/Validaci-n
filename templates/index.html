@@ -1,100 +1,200 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <title>Generar Constancia Fiscal</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            background: #f2f4f7;
-            margin: 0;
-            padding: 0;
-        }
-        .container {
-            max-width: 420px;
-            margin: 60px auto;
-            background: #fff;
-            padding: 25px;
-            border-radius: 10px;
-            box-shadow: 0 8px 25px rgba(0,0,0,.1);
-        }
-        h1 {
-            text-align: center;
-            font-size: 20px;
-            margin-bottom: 20px;
-        }
-        label {
-            font-size: 14px;
-            font-weight: bold;
-            display: block;
-            margin-top: 15px;
-        }
-        input {
-            width: 100%;
-            padding: 10px;
-            font-size: 15px;
-            margin-top: 6px;
-            border-radius: 6px;
-            border: 1px solid #ccc;
-            text-transform: uppercase;
-        }
-        button {
-            width: 100%;
-            margin-top: 25px;
-            padding: 12px;
-            font-size: 16px;
-            background: #005ea6;
-            color: #fff;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-        }
-        button:hover {
-            background: #004b86;
-        }
-        .note {
-            margin-top: 15px;
-            font-size: 12px;
-            color: #666;
-            text-align: center;
-        }
-    </style>
-</head>
-<body>
+import os
+import io
+import random
+import string
+import qrcode
+from datetime import datetime
+from flask import Flask, request, send_file, render_template
+from fpdf import FPDF
 
-<div class="container">
-    <h1>Generar PDF CSF</h1>
+# Flask app (Serverless)
+app = Flask(
+    __name__,
+    template_folder="../templates"
+)
 
-    <form action="/procesar" method="POST">
-        <label for="curp">CURP</label>
-        <input
-            type="text"
-            id="curp"
-            name="curp"
-            placeholder="PERJ821004HDFRDR02"
-            maxlength="18"
-            required
-        >
+# ================== UTILIDADES ==================
 
-        <label for="nombre">Nombre completo</label>
-        <input
-            type="text"
-            id="nombre"
-            name="nombre"
-            placeholder="JORGE ALDO PEREZ RODRIGUEZ"
-            required
-        >
+def pt_to_mm(pt):
+    return pt * 0.352778
 
-        <button type="submit">
-            Generar PDF
-        </button>
-    </form>
+def draw_centered(pdf, x_pt, y_pt, text):
+    """
+    Equivalente a drawCentredString de ReportLab,
+    adaptado a fpdf2 (mm + origen top-left)
+    """
+    x_mm = pt_to_mm(x_pt)
+    y_mm = pt_to_mm(792 - y_pt)
+    w = pdf.get_string_width(text)
+    pdf.set_xy(x_mm - w / 2, y_mm)
+    pdf.cell(w, 0, text)
 
-    <div class="note">
-        El documento se genera automáticamente en formato PDF.
-    </div>
-</div>
+class CSF_PDF(FPDF):
+    def __init__(self):
+        super().__init__(orientation="P", unit="mm", format="Letter")
+        self.set_auto_page_break(False)
 
-</body>
-</html>
+# ================== RUTAS ==================
+
+@app.route("/", methods=["GET"])
+def index():
+    return render_template("index.html")
+
+@app.route("/procesar", methods=["POST"])
+def procesar():
+    try:
+        # -------- DATOS DESDE FORM --------
+        curp = request.form.get("curp", "").upper().strip()
+        nombre_full = request.form.get("nombre", "").upper().strip()
+
+        if not curp or not nombre_full:
+            return "Datos incompletos", 400
+
+        # -------- DATOS DERIVADOS --------
+        rfc = curp[:10] + "".join(
+            random.choices(string.ascii_uppercase + string.digits, k=3)
+        )
+        idcif = "".join(random.choices(string.digits, k=11))
+        fecha_operaciones = "01 DE ENERO DE 2005"
+
+        lugar_fecha = (
+            f"CUAUHTEMOC, CIUDAD DE MEXICO, A "
+            f"{datetime.now().day:02d} DE "
+            f"{datetime.now().strftime('%B').upper()} DE "
+            f"{datetime.now().year}"
+        )
+
+        url_qr = f"https://{request.host}/validador?D3={idcif}_{rfc}"
+
+        # -------- PDF --------
+        pdf = CSF_PDF()
+
+        base = os.path.dirname(__file__)
+
+        # Fuentes (deben existir en el proyecto)
+        pdf.add_font("Sans", "", os.path.join(base, "../DejaVuSans.ttf"))
+        pdf.add_font("SansBold", "", os.path.join(base, "../DejaVuSans-Bold.ttf"))
+
+        # ================== PÁGINA 1 ==================
+        pdf.add_page()
+
+        # Plantilla
+        pdf.image(
+            os.path.join(base, "../plantilla.png"),
+            x=0, y=0, w=215.9, h=279.4
+        )
+
+        # QR
+        qr_img = qrcode.make(url_qr)
+        qr_buf = io.BytesIO()
+        qr_img.save(qr_buf, format="PNG")
+        qr_buf.seek(0)
+
+        pdf.image(
+            qr_buf,
+            x=pt_to_mm(74),
+            y=pt_to_mm(792 - 578 - 82),
+            w=pt_to_mm(82),
+            h=pt_to_mm(82)
+        )
+
+        # Cédula
+        pdf.set_font("SansBold", size=8)
+        draw_centered(pdf, 165, 638, rfc)
+
+        pdf.set_font("Sans", size=6.5)
+        draw_centered(pdf, 165, 612, nombre_full)
+        draw_centered(pdf, 165, 595, f"idCIF: {idcif}")
+
+        pdf.set_font("SansBold", size=7.5)
+        draw_centered(pdf, 364, 683, lugar_fecha)
+
+        # Identificación
+        pdf.set_font("Sans", size=7)
+        y_id = 452
+        for val in [
+            rfc,
+            curp,
+            nombre_full,
+            "", "",
+            fecha_operaciones,
+            "ACTIVO",
+            fecha_operaciones,
+            ""
+        ]:
+            pdf.set_xy(pt_to_mm(255), pt_to_mm(792 - y_id))
+            pdf.cell(pt_to_mm(200), 0, val)
+            y_id -= 23.5
+
+        # ================== PÁGINA 2 ==================
+        pdf.add_page()
+        pdf.image(
+            os.path.join(base, "../plantilla2.png"),
+            x=0, y=0, w=215.9, h=279.4
+        )
+
+        pdf.set_font("Sans", size=7)
+        y_act = 615
+        for x, txt in [
+            (45, "1"),
+            (90, "Asalariado"),
+            (415, "100"),
+            (485, fecha_operaciones)
+        ]:
+            pdf.set_xy(pt_to_mm(x), pt_to_mm(792 - y_act))
+            pdf.cell(0, 0, txt)
+
+        # Régimen
+        pdf.set_xy(pt_to_mm(60), pt_to_mm(792 - 530))
+        pdf.cell(
+            pt_to_mm(330),
+            0,
+            "Régimen de Sueldos y Salarios e Ingresos Asimilados a Salarios"
+        )
+        pdf.set_xy(pt_to_mm(485), pt_to_mm(792 - 530))
+        pdf.cell(0, 0, fecha_operaciones)
+
+        # Sellos
+        pdf.set_font("SansBold", size=6)
+        pdf.set_xy(pt_to_mm(60), pt_to_mm(792 - 125))
+        pdf.cell(0, 0, "Cadena Original Sello:")
+
+        pdf.set_font("Sans", size=5)
+        pdf.set_xy(pt_to_mm(60), pt_to_mm(792 - 118))
+        pdf.cell(
+            pt_to_mm(350),
+            0,
+            f"|{datetime.now().strftime('%Y/%m/%d %H:%M:%S')}|{rfc}|CONSTANCIA DE SITUACIÓN FISCAL|{idcif}||"
+        )
+
+        # QR página 2
+        qr_buf.seek(0)
+        pdf.image(
+            qr_buf,
+            x=pt_to_mm(480),
+            y=pt_to_mm(792 - 80 - 85),
+            w=pt_to_mm(85),
+            h=pt_to_mm(85)
+        )
+
+        # -------- SALIDA --------
+        output = pdf.output(dest="S").encode("latin1")
+        return send_file(
+            io.BytesIO(output),
+            mimetype="application/pdf",
+            as_attachment=True,
+            download_name=f"CSF_{rfc}.pdf"
+        )
+
+    except Exception as e:
+        return f"Error PDF: {str(e)}", 500
+
+@app.route("/validador")
+def validador():
+    return {
+        "estatus": "ACTIVO",
+        "mensaje": "Documento generado para validación"
+    }
+
+# 👇 CLAVE PARA VERCEL
+handler = app
