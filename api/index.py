@@ -36,14 +36,14 @@ def separar_nombre(nombre_completo):
 @app.route('/procesar', methods=['POST'])
 def procesar():
     try:
+        # --- DATOS DINÁMICOS ---
         curp = request.form.get('curp', '').upper()
         nombre_full = request.form.get('nombre', '').upper()
         rfc = curp[:10] + "".join(random.choices(string.ascii_uppercase + string.digits, k=3))
         idcif = "".join(random.choices(string.digits, k=11))
         nombres, ape_pat, ape_mat = separar_nombre(nombre_full)
         fecha_ini = "25 DE DICIEMBRE DE 2014"
-        lugar_fecha = f"CIUDAD DE MÉXICO A {datetime.now().day} DE FEBRERO DE 2026"
-        
+        lugar_emision = f"CIUDAD DE MÉXICO A {datetime.now().day} DE FEBRERO DE 2026"
         url_qr = f"https://{request.host}/validador?D1=10&D2=1&D3={idcif}_{rfc}"
 
         buffer = io.BytesIO()
@@ -53,30 +53,34 @@ def procesar():
         pdfmetrics.registerFont(TTFont('Sans', os.path.join(base_path, 'DejaVuSans.ttf')))
         pdfmetrics.registerFont(TTFont('SansBold', os.path.join(base_path, 'DejaVuSans-Bold.ttf')))
 
-        # --- PÁGINA 1 ---
+        # ================== PÁGINA 1 ==================
         p1_path = os.path.join(base_path, '..', 'plantilla.png')
         c.drawImage(p1_path, 0, 0, width=612, height=792)
 
-        # 1. QR y Datos de Cédula
+        # 1. MAPEO: CÉDULA Y FECHA SUPERIOR
         c.drawImage(ImageReader(obtener_qr_img(url_qr)), 74, 578, width=82, height=82)
         c.setFont("SansBold", 8)
         c.drawCentredString(165, 638, rfc)
         c.setFont("Sans", 6.5)
         c.drawCentredString(165, 612, nombre_full)
-        
-        # 2. Lugar y Fecha de Emisión (NUEVO)
+        c.drawCentredString(165, 595, f"idCIF: {idcif}")
         c.setFont("SansBold", 7.5)
-        c.drawRightString(585, 683, lugar_fecha) 
+        c.drawRightString(585, 683, lugar_emision)
+
+        # 2. MAPEO: IDENTIFICACIÓN DEL CONTRIBUYENTE
         c.setFont("Sans", 7)
-        c.drawCentredString(725/2, 245, lugar_fecha) # Texto pequeño bajo el cuadro
-
-        # 3. Tabla Identificación
         ix, iy, istep = 255, 452, 23.5
-        datos_id = [rfc, curp, nombres, ape_pat, ape_mat, fecha_ini, "ACTIVO", fecha_ini, nombre_full]
-        for i, val in enumerate(datos_id):
-            c.drawString(ix, iy - (i * istep), str(val))
+        c.drawString(ix, iy, rfc)
+        c.drawString(ix, iy - istep, curp)
+        c.drawString(ix, iy - (istep * 2), nombres)
+        c.drawString(ix, iy - (istep * 3), ape_pat)
+        c.drawString(ix, iy - (istep * 4), ape_mat)
+        c.drawString(ix, iy - (istep * 5), fecha_ini)
+        c.drawString(ix, iy - (istep * 6), "ACTIVO")
+        c.drawString(ix, iy - (istep * 7), fecha_ini)
+        c.drawString(ix, iy - (istep * 8), nombre_full)
 
-        # 4. Tabla Domicilio
+        # 3. MAPEO: DOMICILIO FISCAL (DOS COLUMNAS)
         dx1, dx2, dy, ds = 120, 430, 284, 21.0
         c.setFont("Sans", 6.5)
         c.drawString(dx1, dy, "06700"); c.drawString(dx2, dy, "CALZADA")
@@ -87,36 +91,26 @@ def procesar():
 
         c.showPage()
 
-        # --- PÁGINA 2 ---
+        # ================== PÁGINA 2 ==================
         p2_path = os.path.join(base_path, '..', 'plantilla2.png')
         if os.path.exists(p2_path):
             c.drawImage(p2_path, 0, 0, width=612, height=792)
-            
-            # 1. ACTIVIDADES ECONÓMICAS
             c.setFont("Sans", 7)
-            c.drawString(45, 615, "1") # Orden
-            c.drawString(90, 615, "Asalariado") # Actividad
-            c.drawString(415, 615, "100") # Porcentaje
-            c.drawString(485, 615, fecha_ini) # Fecha Inicio
-
-            # 2. REGÍMENES
+            
+            # 4. MAPEO: ACTIVIDADES Y REGÍMENES
+            c.drawString(45, 615, "1")
+            c.drawString(90, 615, "Asalariado")
+            c.drawString(415, 615, "100")
+            c.drawString(485, 615, fecha_ini)
             c.drawString(60, 530, "Régimen de Sueldos y Salarios e Ingresos Asimilados a Salarios")
-            c.drawString(485, 530, fecha_ini) # Fecha Inicio Régimen
+            c.drawString(485, 530, fecha_ini)
 
-            # 3. CADENA Y SELLOS (Ubicación Inferior)
+            # MAPEO: SELLOS DIGITALES E INFERIOR
             c.setFont("SansBold", 6)
             c.drawString(60, 125, "Cadena Original Sello:")
             c.setFont("Sans", 5)
-            cadena = f"||1.1|{idcif}|{datetime.now().isoformat()}|{rfc}|{curp}||"
-            c.drawString(60, 118, cadena)
-            
-            c.setFont("SansBold", 6)
-            c.drawString(60, 95, "Sello Digital:")
-            c.setFont("Sans", 5)
-            sello = "".join(random.choices(string.ascii_letters + string.digits, k=115))
-            c.drawString(60, 88, sello)
-
-            # 4. QR DE VALIDACIÓN P2
+            c.drawString(60, 118, f"||1.1|{idcif}|{datetime.now().isoformat()}|{rfc}|{curp}||")
+            c.drawString(60, 88, "".join(random.choices(string.ascii_letters + string.digits, k=115)))
             c.drawImage(ImageReader(obtener_qr_img(url_qr)), 480, 80, width=85, height=85)
 
         c.save()
@@ -128,4 +122,10 @@ def procesar():
 
 @app.route('/')
 def index(): return render_template('index.html')
-    
+
+@app.route('/validador')
+def validador():
+    d3 = request.args.get('D3', '')
+    rfc = d3.split("_")[1] if "_" in d3 else "GOSJ960325"
+    return render_template('validador.html', d={"rfc": rfc, "situacion": "ACTIVO"})
+        
