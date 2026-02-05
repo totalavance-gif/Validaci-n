@@ -1,111 +1,145 @@
+import os, io, random, string, qrcode
+from datetime import datetime
 from flask import Flask, request, send_file, render_template
 from fpdf import FPDF
-import io, os, qrcode, random, string
-from datetime import datetime
 
 app = Flask(__name__, template_folder='../templates')
 
-# ---- Conversión pt → mm
+# ---- Utilidades de Conversión y Posicionamiento ----
 def pt_to_mm(pt):
     return pt * 0.352778
 
-# ---- Función de centrado dinámico
 def draw_centered(pdf, x_pt, y_pt, text):
+    """Calcula el ancho real del texto para centrarlo exactamente en x_pt."""
     x_mm = pt_to_mm(x_pt)
     y_mm = pt_to_mm(792 - y_pt)
-    # Calcula el ancho del texto con la fuente actual
     w_text = pdf.get_string_width(text)
-    # Posiciona para que el centro del texto sea x_mm
     pdf.set_xy(x_mm - (w_text / 2), y_mm)
     pdf.cell(w_text, 0, text)
 
-class CSF(FPDF):
+class CSF_PDF(FPDF):
     def __init__(self):
-        # Letter size: 215.9 x 279.4 mm
         super().__init__(orientation='P', unit='mm', format='Letter')
         self.set_auto_page_break(False)
 
 @app.route("/procesar", methods=["POST"])
 def procesar():
     try:
-        # Obtener datos del formulario
-        nombre_form = request.form.get('nombre', 'JORGE ALDO PEREZ RODRIGUEZ').upper()
-        curp_form = request.form.get('curp', 'PERJ821004HDFRDR02').upper()
+        # 1. Recuperación de datos del formulario
+        curp = request.form.get('curp', 'PERJ821004HDFRDR02').upper()
+        nombre_full = request.form.get('nombre', 'JORGE ALDO PEREZ RODRIGUEZ').upper()
         
-        # Generar datos simulados
-        rfc = curp_form[:10] + "".join(random.choices(string.ascii_uppercase + string.digits, k=3))
+        # 2. Generación de datos dinámicos
+        rfc = curp[:10] + "".join(random.choices(string.ascii_uppercase + string.digits, k=3))
         idcif = "".join(random.choices(string.digits, k=11))
         lugar_fecha = f"CIUDAD DE MÉXICO A {datetime.now().day} DE FEBRERO DE 2026"
+        fecha_ini = "25 DE DICIEMBRE DE 2014"
         url_qr = f"https://{request.host}/validador?D3={idcif}_{rfc}"
 
-        pdf = CSF()
-        base = os.path.dirname(os.path.abspath(__file__))
-
-        # Registrar fuentes (Asegúrate de que los archivos estén en api/)
-        pdf.add_font("Sans", "", os.path.join(base, "DejaVuSans.ttf"))
-        pdf.add_font("SansBold", "", os.path.join(base, "DejaVuSans-Bold.ttf"))
+        # 3. Configuración del PDF
+        pdf = CSF_PDF()
+        base_path = os.path.dirname(os.path.abspath(__file__))
+        
+        # Registro de fuentes (Asegúrate que los archivos .ttf estén en api/)
+        pdf.add_font("Sans", "", os.path.join(base_path, "DejaVuSans.ttf"))
+        pdf.add_font("SansBold", "", os.path.join(base_path, "DejaVuSans-Bold.ttf"))
 
         # ================== PÁGINA 1 ==================
         pdf.add_page()
-        pdf.image(os.path.join(base, "../plantilla.png"), 0, 0, 215.9, 279.4)
+        pdf.image(os.path.join(base_path, "../plantilla.png"), 0, 0, 215.9, 279.4)
 
-        # Generar QR
-        qr = qrcode.make(url_qr)
+        # Generación de código QR
+        qr_gen = qrcode.make(url_qr)
         qr_buf = io.BytesIO()
-        qr.save(qr_buf, format="PNG")
+        qr_gen.save(qr_buf, format="PNG")
         qr_buf.seek(0)
 
-        # QR Cédula
+        # Bloque 1: Cédula Superior
         pdf.image(qr_buf, pt_to_mm(74), pt_to_mm(792 - 578 - 82), pt_to_mm(82), pt_to_mm(82))
-
-        # Textos Centrados Cédula
+        
         pdf.set_font("SansBold", size=8)
         draw_centered(pdf, 165, 638, rfc)
-
+        
         pdf.set_font("Sans", size=6.5)
-        draw_centered(pdf, 165, 612, nombre_form)
+        draw_centered(pdf, 165, 612, nombre_full)
         draw_centered(pdf, 165, 595, f"idCIF: {idcif}")
-
-        # Lugar y Fecha Emisión
+        
         pdf.set_font("SansBold", size=7.5)
         draw_centered(pdf, 364, 683, lugar_fecha)
 
-        # Datos de Identificación (Columna fija a la izquierda)
+        # Bloque 2: Identificación del Contribuyente
         pdf.set_font("Sans", size=7)
         y_id = 452
-        # RFC, CURP, Nombre, Pat, Mat, Inicio, Estatus, Cambio, Comercial
-        datos = [rfc, curp_form, nombre_form, "", "", "25 DE DICIEMBRE DE 2014", "ACTIVO", "25 DE DICIEMBRE DE 2014", ""]
-        for dato in datos:
+        datos_id = [rfc, curp, nombre_full, "", "", fecha_ini, "ACTIVO", fecha_ini, ""]
+        for dato in datos_id:
             pdf.set_xy(pt_to_mm(255), pt_to_mm(792 - y_id))
             pdf.cell(0, 0, str(dato))
             y_id -= 23.5
 
+        # Bloque 3: Domicilio Fiscal
+        pdf.set_font("Sans", size=6.5)
+        y_dom = 284
+        filas_dom = [
+            (120, "06700", 430, "CALZADA"),
+            (120, "INSURGENTES", 430, "880"),
+            (120, "S/N", 430, "ROMA NORTE"),
+            (120, "CUAUHTÉMOC", 430, "CUAUHTÉMOC"),
+            (120, "CIUDAD DE MÉXICO", 430, "CALLE 10 Y 12")
+        ]
+        for f in filas_dom:
+            pdf.set_xy(pt_to_mm(f[0]), pt_to_mm(792 - y_dom))
+            pdf.cell(0, 0, f[1])
+            pdf.set_xy(pt_to_mm(f[2]), pt_to_mm(792 - y_dom))
+            pdf.cell(0, 0, f[3])
+            y_dom -= 21
+
         # ================== PÁGINA 2 ==================
         pdf.add_page()
-        pdf.image(os.path.join(base, "../plantilla2.png"), 0, 0, 215.9, 279.4)
+        pdf.image(os.path.join(base_path, "../plantilla2.png"), 0, 0, 215.9, 279.4)
 
-        # Actividades Económicas
+        # Bloque 4: Actividades Económicas
         pdf.set_font("Sans", size=7)
-        pdf.set_xy(pt_to_mm(90), pt_to_mm(792 - 615))
-        pdf.cell(0, 0, "Asalariado")
+        pdf.set_xy(pt_to_mm(45), pt_to_mm(792 - 615)); pdf.cell(0, 0, "1")
+        pdf.set_xy(pt_to_mm(90), pt_to_mm(792 - 615)); pdf.cell(0, 0, "Asalariado")
+        pdf.set_xy(pt_to_mm(415), pt_to_mm(792 - 615)); pdf.cell(0, 0, "100")
+        pdf.set_xy(pt_to_mm(485), pt_to_mm(792 - 615)); pdf.cell(0, 0, fecha_ini)
+
+        # Bloque 5: Regímenes Fiscales
+        pdf.set_xy(pt_to_mm(60), pt_to_mm(792 - 530))
+        pdf.cell(0, 0, "Régimen de Sueldos y Salarios e Ingresos Asimilados a Salarios")
+        pdf.set_xy(pt_to_mm(485), pt_to_mm(792 - 530))
+        pdf.cell(0, 0, fecha_ini)
+
+        # Bloque 6: Sellos Digitales y QR P2
+        pdf.set_font("SansBold", size=6)
+        pdf.set_xy(pt_to_mm(60), pt_to_mm(792 - 125)); pdf.cell(0, 0, "Cadena Original Sello:")
+        pdf.set_font("Sans", size=5)
+        pdf.set_xy(pt_to_mm(60), pt_to_mm(792 - 118))
+        pdf.cell(0, 0, f"||1.1|CSF|{idcif}|{datetime.now().isoformat()}|{rfc}||")
         
-        # QR Página 2
         qr_buf.seek(0)
         pdf.image(qr_buf, pt_to_mm(480), pt_to_mm(792 - 80 - 85), pt_to_mm(85), pt_to_mm(85))
 
-        # Salida segura
-        out = pdf.output() 
-        return send_file(io.BytesIO(out),
-                         mimetype="application/pdf",
-                         as_attachment=True,
-                         download_name=f"CSF_{rfc}.pdf")
+        # 4. Finalización y Retorno
+        output = pdf.output()
+        return send_file(
+            io.BytesIO(output),
+            mimetype="application/pdf",
+            as_attachment=True,
+            download_name=f"CSF_{rfc}.pdf"
+        )
 
     except Exception as e:
-        return f"Error: {str(e)}", 500
+        return f"Error en generación FPDF2: {str(e)}", 500
 
 @app.route("/")
-def index(): return render_template("index.html")
+def index():
+    return render_template("index.html")
 
 @app.route("/validador")
-def validador(): return render_template("validador.html")
-    
+def validador():
+    return render_template("validador.html")
+
+if __name__ == "__main__":
+    app.run(debug=True)
+        
