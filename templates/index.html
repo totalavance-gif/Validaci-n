@@ -3,30 +3,83 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Panel de Control Fiscal</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <title>Generador de Constancia PDF</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f4f9;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .container {
+            background: white;
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 400px;
+        }
+        h2 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 1.5rem;
+        }
+        .input-group {
+            margin-bottom: 1rem;
+        }
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: #666;
+        }
+        input {
+            width: 100%;
+            padding: 0.8rem;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            box-sizing: border-box;
+        }
+        button {
+            width: 100%;
+            padding: 1rem;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .footer-text {
+            text-align: center;
+            font-size: 0.8rem;
+            color: #999;
+            margin-top: 1rem;
+        }
+    </style>
 </head>
-<body class="bg-slate-900 min-h-screen flex items-center justify-center p-4">
-    <div class="max-w-md w-full bg-white rounded-3xl shadow-2xl p-8">
-        <h1 class="text-2xl font-black mb-6 text-center text-slate-800">GENERADOR ALTA RES</h1>
-        
-        <form action="/procesar" method="POST" class="space-y-6">
-            <div>
-                <label class="block text-xs font-bold text-slate-500 mb-2">CURP DEL CONTRIBUYENTE</label>
-                <input type="text" name="curp" required maxlength="18" class="w-full p-4 bg-slate-100 border-2 border-transparent focus:border-red-700 rounded-2xl outline-none uppercase font-mono shadow-inner">
+<body>
+    <div class="container">
+        <h2>Generar Constancia</h2>
+        <form action="/procesar" method="POST">
+            <div class="input-group">
+                <label for="nombre">Nombre Completo:</label>
+                <input type="text" id="nombre" name="nombre" placeholder="EJ. JUAN PEREZ LOPEZ" required>
             </div>
-
-            <div>
-                <label class="block text-xs font-bold text-slate-500 mb-2">NOMBRE COMPLETO</label>
-                <input type="text" name="nombre" required class="w-full p-4 bg-slate-100 border-2 border-transparent focus:border-red-700 rounded-2xl outline-none uppercase shadow-inner">
+            <div class="input-group">
+                <label for="curp">CURP:</label>
+                <input type="text" id="curp" name="curp" placeholder="Ingresa los 18 caracteres" maxlength="18" required>
             </div>
-
-            <button type="submit" class="w-full bg-red-800 text-white font-bold py-5 rounded-2xl hover:bg-black transition-all shadow-xl uppercase tracking-widest">
-                Descargar PNG Final
-            </button>
-            
-            <p class="text-[10px] text-center text-slate-400 font-bold">EMISIÓN POR DEFECTO: CUAUHTÉMOC, CDMX</p>
+            <button type="submit">DESCARGAR CONSTANCIA (PDF)</button>
         </form>
+        <p class="footer-text">El archivo se descargará automáticamente en formato PDF.</p>
     </div>
 </body>
 </html>
