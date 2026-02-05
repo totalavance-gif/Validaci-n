@@ -15,105 +15,113 @@ from reportlab.graphics.shapes import Drawing, renderPDF
 
 app = Flask(__name__, template_folder='../templates')
 
-def generar_qr(c, x, y, size, data):
-    """Dibuja un código QR en las coordenadas especificadas"""
-    qr_code = qr.QrCodeWidget(data, barLevel='H')
+# --- FUNCIÓN AUXILIAR PARA QR ---
+def dibujar_qr(c, x, y, tamaño, contenido):
+    qr_code = qr.QrCodeWidget(contenido)
     bounds = qr_code.getBounds()
-    width = bounds[2] - bounds[0]
-    height = bounds[3] - bounds[1]
-    d = Drawing(size, size, transform=[size/width, 0, 0, size/height, 0, 0])
+    ancho = bounds[2] - bounds[0]
+    alto = bounds[3] - bounds[1]
+    d = Drawing(tamaño, tamaño, transform=[tamaño/ancho, 0, 0, tamaño/alto, 0, 0])
     d.add(qr_code)
     renderPDF.draw(d, c, x, y)
 
 @app.route('/procesar', methods=['POST'])
 def procesar():
     try:
-        # --- DATOS DE ENTRADA ---
+        # 1. Recolección de datos
         curp = request.form.get('curp', '').upper()
         nombre_full = request.form.get('nombre', '').upper()
         rfc = curp[:10] + "".join(random.choices(string.ascii_uppercase + string.digits, k=3))
         
         # =========================================================
-        # PANEL DE CONTROL DE COORDENADAS (AJUSTA AQUÍ)
+        # PANEL DE CONTROL DE COORDENADAS (MUEVE AQUÍ X y Y)
         # =========================================================
-        # Formato: "Nombre": [X, Y, Tamaño_Letra]
-        # Recuerda que Y sube si el número es mayor.
-        
+        # [Eje_X, Eje_Y, Tamaño]
         MAPEO = {
             # PÁGINA 1
-            "P1_QR":          [75,  603, 70],  # X, Y, Tamaño del cuadro
-            "P1_RFC_CEDULA":  [165, 636, 8],   # X (Centro), Y, Font
-            "P1_NOM_CEDULA":  [165, 610, 6],   # X (Centro), Y, Font
-            "P1_FECHA":       [585, 683, 7],   # X (Derecha), Y, Font
-            "P1_TABLA_RFC":   [255, 452, 7],   # X, Y, Font
+            "P1_QR":           [70,  578, 85],   # QR de la cédula
+            "P1_RFC_CEDULA":   [165, 638, 8],    # RFC en el cuadro blanco
+            "P1_NOM_CEDULA":   [165, 615, 6],    # Nombre en el cuadro blanco
+            "P1_FECHA_EMISION":[585, 683, 7],    # Lugar y fecha (arriba der)
+            "P1_TABLA_RFC":    [255, 452, 7],    # RFC en la tabla central
             
             # PÁGINA 2
-            "P2_QR":          [480, 78,  80],  # X, Y, Tamaño del cuadro
-            "P2_ACTIVIDAD":   [90,  643, 7],   # X, Y, Font
-            "P2_PORCENTAJE":  [415, 643, 7]    # X, Y, Font
+            "P2_QR_VALIDA":    [480, 80, 90],    # QR de validación al final
+            "P2_REGIMEN":      [60, 555, 7],     # Texto del régimen
+            "P2_ACTIVIDAD":    [90, 640, 7],     # Texto de actividad
         }
         
-        # Salto entre renglones de la tabla (Interlineado)
-        LINE_SPACE = 23.5 
+        # Salto de línea para la tabla de identificación
+        SALTO = 23.5 
         # =========================================================
 
         buffer = io.BytesIO()
         c = canvas.Canvas(buffer, pagesize=letter)
+        
+        # Rutas absolutas para Vercel
         base_path = os.path.dirname(os.path.abspath(__file__))
+        
+        # Registro de fuentes (Asegúrate que estén en la carpeta api/)
+        font_path = os.path.join(base_path, 'DejaVuSans.ttf')
+        font_bold_path = os.path.join(base_path, 'DejaVuSans-Bold.ttf')
+        
+        pdfmetrics.registerFont(TTFont('Sans', font_path))
+        pdfmetrics.registerFont(TTFont('SansBold', font_bold_path))
 
-        # Carga de fuentes
-        pdfmetrics.registerFont(TTFont('Sans', os.path.join(base_path, 'DejaVuSans.ttf')))
-        pdfmetrics.registerFont(TTFont('SansBold', os.path.join(base_path, 'DejaVuSans-Bold.ttf')))
-
-        # --- PÁGINA 1 ---
+        # --- DIBUJO PÁGINA 1 ---
+        # La plantilla debe estar en la raíz, un nivel arriba de api/
         p1_path = os.path.join(base_path, '..', 'plantilla.png')
-        c.drawImage(p1_path, 0, 0, width=612, height=792)
+        if os.path.exists(p1_path):
+            c.drawImage(p1_path, 0, 0, width=612, height=792)
 
-        # Dibujar QR Pág 1
-        generar_qr(c, MAPEO["P1_QR"][0], MAPEO["P1_QR"][1], MAPEO["P1_QR"][2], "QR_PAGINA_1")
+        # QR Página 1 (Sin URL todavía)
+        dibujar_qr(c, MAPEO["P1_QR"][0], MAPEO["P1_QR"][1], MAPEO["P1_QR"][2], "DATO_TEMPORAL_QR1")
 
-        # Cédula
+        # Textos Cédula
         c.setFont("SansBold", MAPEO["P1_RFC_CEDULA"][2])
         c.drawCentredString(MAPEO["P1_RFC_CEDULA"][0], MAPEO["P1_RFC_CEDULA"][1], rfc)
         
         c.setFont("Sans", MAPEO["P1_NOM_CEDULA"][2])
         c.drawCentredString(MAPEO["P1_NOM_CEDULA"][0], MAPEO["P1_NOM_CEDULA"][1], nombre_full)
 
-        # Fecha
-        c.setFont("SansBold", MAPEO["P1_FECHA"][2])
-        fecha_str = f"CIUDAD DE MÉXICO A {datetime.now().day} DE FEBRERO DE 2026"
-        c.drawRightString(MAPEO["P1_FECHA"][0], MAPEO["P1_FECHA"][1], fecha_str)
+        # Fecha de Emisión
+        c.setFont("SansBold", MAPEO["P1_FECHA_EMISION"][2])
+        fecha_txt = f"CIUDAD DE MÉXICO A {datetime.now().day} DE FEBRERO DE 2026"
+        c.drawRightString(MAPEO["P1_FECHA_EMISION"][0], MAPEO["P1_FECHA_EMISION"][1], fecha_txt)
 
-        # Tabla de Identificación (Usa el LINE_SPACE para bajar automáticamente)
+        # Tabla de Identificación
         c.setFont("Sans", MAPEO["P1_TABLA_RFC"][2])
         x_t, y_t = MAPEO["P1_TABLA_RFC"][0], MAPEO["P1_TABLA_RFC"][1]
-        
         c.drawString(x_t, y_t, rfc)
-        c.drawString(x_t, y_t - LINE_SPACE, curp)
-        c.drawString(x_t, y_t - (LINE_SPACE * 2), nombre_full)
+        c.drawString(x_t, y_t - SALTO, curp)
+        c.drawString(x_t, y_t - (SALTO * 2), nombre_full)
 
-        c.showPage()
+        c.showPage() # Nueva página
 
-        # --- PÁGINA 2 ---
+        # --- DIBUJO PÁGINA 2 ---
         p2_path = os.path.join(base_path, '..', 'plantilla2.png')
-        c.drawImage(p2_path, 0, 0, width=612, height=792)
+        if os.path.exists(p2_path):
+            c.drawImage(p2_path, 0, 0, width=612, height=792)
 
-        # Dibujar QR Pág 2
-        generar_qr(c, MAPEO["P2_QR"][0], MAPEO["P2_QR"][1], MAPEO["P2_QR"][2], "QR_PAGINA_2")
+        # QR Página 2
+        dibujar_qr(c, MAPEO["P2_QR_VALIDA"][0], MAPEO["P2_QR_VALIDA"][1], MAPEO["P2_QR_VALIDA"][2], "DATO_TEMPORAL_QR2")
 
-        # Actividades
+        # Datos Página 2
         c.setFont("Sans", MAPEO["P2_ACTIVIDAD"][2])
         c.drawString(MAPEO["P2_ACTIVIDAD"][0], MAPEO["P2_ACTIVIDAD"][1], "Asalariado")
-        c.drawString(MAPEO["P2_PORCENTAJE"][0], MAPEO["P2_PORCENTAJE"][1], "100")
+        
+        c.setFont("Sans", MAPEO["P2_REGIMEN"][2])
+        c.drawString(MAPEO["P2_REGIMEN"][0], MAPEO["P2_REGIMEN"][1], "Régimen de Sueldos y Salarios")
 
         c.save()
         buffer.seek(0)
         return send_file(buffer, mimetype='application/pdf', as_attachment=True, download_name=f'CSF_{rfc}.pdf')
 
     except Exception as e:
-        return f"Error: {str(e)}", 500
+        # Esto te ayudará a ver qué archivo falta en los logs de Vercel
+        return f"Error en el servidor: {str(e)}", 500
 
 @app.route('/')
 def index():
     return render_template('index.html')
-        
+    
