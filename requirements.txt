@@ -1,5 +1,4 @@
-flask
-requests
+Flask
+fpdf2
+qrcode
 Pillow
-reportlab
-qrcode[pil]
