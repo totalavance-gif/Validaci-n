@@ -2,31 +2,28 @@ import os
 import io
 import random
 import string
+import qrcode
 from datetime import datetime
 from flask import Flask, render_template, request, send_file
-
-# Librerías para PDF y Códigos de Barras
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
-from reportlab.graphics.barcode import qr
-from reportlab.graphics.shapes import Drawing, renderPDF
 
 app = Flask(__name__, template_folder='../templates')
 
-def generar_qr(c, x, y, tamaño, contenido):
-    """Genera e inserta un código QR en el PDF"""
-    qr_code = qr.QrCodeWidget(contenido)
-    bounds = qr_code.getBounds()
-    ancho = bounds[2] - bounds[0]
-    alto = bounds[3] - bounds[1]
-    d = Drawing(tamaño, tamaño, transform=[tamaño/ancho, 0, 0, tamaño/alto, 0, 0])
-    d.add(qr_code)
-    renderPDF.draw(d, c, x, y)
+def obtener_qr_img(contenido):
+    """Genera un QR usando la librería qrcode (más compatible con Vercel)"""
+    qr = qrcode.QRCode(box_size=10, border=0)
+    qr.add_data(contenido)
+    qr.make(fit=True)
+    img = qr.make_image(fill_color="black", back_color="white")
+    img_byte_arr = io.BytesIO()
+    img.save(img_byte_arr, format='PNG')
+    img_byte_arr.seek(0)
+    return img_byte_arr
 
 def separar_nombre(nombre_completo):
-    """Divide el nombre en partes para la tabla central"""
     partes = nombre_completo.split()
     if len(partes) >= 3:
         paterno, materno, nombres = partes[-2], partes[-1], " ".join(partes[:-2])
@@ -42,29 +39,20 @@ def index():
 
 @app.route('/validador')
 def validador():
-    """Página de validación que recibe D3 (idCIF_RFC)"""
     d3 = request.args.get('D3', '')
     idcif = d3.split("_")[0] if "_" in d3 else "23552656862"
     rfc = d3.split("_")[1] if "_" in d3 else "GOSJ960325862"
-    
     datos = {
-        "rfc": rfc,
-        "idcif": idcif,
-        "curp": rfc + "HDFNNL09"[:8],
-        "nombre": "JULIO LEVI",
-        "paterno": "GONZALEZ",
-        "materno": "SANTELIZ",
-        "situacion": "ACTIVO",
-        "inicio_op": "25-12-2014",
-        "entidad": "CIUDAD DE MÉXICO",
-        "cp": "06700"
+        "rfc": rfc, "idcif": idcif, "curp": rfc + "HDFNNL09"[:8],
+        "nombre": "JULIO LEVI", "paterno": "GONZALEZ", "materno": "SANTELIZ",
+        "situacion": "ACTIVO", "inicio_op": "25-12-2014"
     }
     return render_template('validador.html', d=datos)
 
 @app.route('/procesar', methods=['POST'])
 def procesar():
     try:
-        # 1. Preparación de datos
+        # 1. Datos
         curp = request.form.get('curp', '').upper()
         nombre_full = request.form.get('nombre', '').upper()
         rfc = curp[:10] + "".join(random.choices(string.ascii_uppercase + string.digits, k=3))
@@ -72,45 +60,31 @@ def procesar():
         nombres, ape_pat, ape_mat = separar_nombre(nombre_full)
         fecha_const = "25 DE DICIEMBRE DE 2014"
         
-        # URL Dinámica para el QR de la primera página
+        # URL de validación
         url_qr = f"https://{request.host}/validador?D1=10&D2=1&D3={idcif}_{rfc}"
-
-        # 2. Mapeo de Coordenadas
-        M = {
-            "P1_QR": [74, 578, 82],
-            "C_RFC": [165, 638], "C_NOM": [165, 612], "C_ID": [165, 595],
-            "ID_X": 255, "ID_Y": 452, "ID_SKIP": 23.5,
-            "H2_QR": [480, 80, 85],
-            "H2_Y_ACT": 615, "H2_Y_REG": 530, "H2_X_FECHA": 485,
-            "X_SELLOS": 60, "Y_CADENA": 115, "Y_SELLO": 85
-        }
 
         buffer = io.BytesIO()
         c = canvas.Canvas(buffer, pagesize=letter)
         base_path = os.path.dirname(os.path.abspath(__file__))
         
-        # Fuentes (Deben estar en carpeta /api)
+        # Fuentes
         pdfmetrics.registerFont(TTFont('Sans', os.path.join(base_path, 'DejaVuSans.ttf')))
         pdfmetrics.registerFont(TTFont('SansBold', os.path.join(base_path, 'DejaVuSans-Bold.ttf')))
 
         # --- PÁGINA 1 ---
-        img1 = os.path.join(base_path, '..', 'plantilla.png')
-        if os.path.exists(img1):
-            c.drawImage(img1, 0, 0, width=612, height=792)
+        img1_path = os.path.join(base_path, '..', 'plantilla.png')
+        c.drawImage(img1_path, 0, 0, width=612, height=792)
 
-        # Insertar QR Redirigible
-        generar_qr(c, M["P1_QR"][0], M["P1_QR"][1], M["P1_QR"][2], url_qr)
+        # INSERTAR QR (Convertido a imagen compatible)
+        qr_img = obtener_qr_img(url_qr)
+        from reportlab.lib.utils import ImageReader
+        c.drawImage(ImageReader(qr_img), 74, 578, width=82, height=82)
 
-        # Datos Cédula
+        # Datos de texto
         c.setFont("SansBold", 8)
-        c.drawCentredString(M["C_RFC"][0], M["C_RFC"][1], rfc)
-        c.setFont("Sans", 6)
-        c.drawCentredString(M["C_NOM"][0], M["C_NOM"][1], nombre_full)
-        c.drawCentredString(M["C_ID"][0], M["C_ID"][1], f"idCIF: {idcif}")
-
-        # Tabla Identificación
+        c.drawCentredString(165, 638, rfc)
         c.setFont("Sans", 7)
-        tx, ty, ts = M["ID_X"], M["ID_Y"], M["ID_SKIP"]
+        tx, ty, ts = 255, 452, 23.5
         datos_id = [rfc, curp, nombres, ape_pat, ape_mat, fecha_const, "ACTIVO", fecha_const, nombre_full]
         for i, val in enumerate(datos_id):
             c.drawString(tx, ty - (i * ts), str(val))
@@ -118,33 +92,21 @@ def procesar():
         c.showPage()
 
         # --- PÁGINA 2 ---
-        img2 = os.path.join(base_path, '..', 'plantilla2.png')
-        if os.path.exists(img2):
-            c.drawImage(img2, 0, 0, width=612, height=792)
+        img2_path = os.path.join(base_path, '..', 'plantilla2.png')
+        if os.path.exists(img2_path):
+            c.drawImage(img2_path, 0, 0, width=612, height=792)
+            # QR Página 2 (Texto simple)
+            qr_p2 = obtener_qr_img(f"VALIDACION_SAT_{rfc}")
+            c.drawImage(ImageReader(qr_p2), 480, 80, width=85, height=85)
             
-            # QR de Página 2 (Texto informativo)
-            generar_qr(c, M["H2_QR"][0], M["H2_QR"][1], M["H2_QR"][2], f"VALIDACION_SAT_{rfc}")
-
-            c.setFont("Sans", 7)
-            # Actividades y Regímenes
-            c.drawString(90, M["H2_Y_ACT"], "Asalariado")
-            c.drawString(M["H2_X_FECHA"], M["H2_Y_ACT"], fecha_const)
-            c.drawString(60, M["H2_Y_REG"], "Régimen de Sueldos y Salarios e Ingresos Asimilados a Salarios")
-            c.drawString(M["H2_X_FECHA"], M["H2_Y_REG"], fecha_const)
-
-            # Cadena y Sello
             c.setFont("Sans", 5)
-            cadena = f"||1.1|{idcif}|{datetime.now().strftime('%Y-%m-%dT%H:%M:%S')}|{rfc}|{curp}||"
-            sello = "".join(random.choices(string.ascii_letters + string.digits, k=115))
-            c.drawString(M["X_SELLOS"], M["Y_CADENA"], "Cadena Original Sello:")
-            c.drawString(M["X_SELLOS"], M["Y_CADENA"] - 7, cadena)
-            c.drawString(M["X_SELLOS"], M["Y_SELLO"], "Sello Digital:")
-            c.drawString(M["X_SELLOS"], M["Y_SELLO"] - 7, sello)
+            c.drawString(60, 115, "Cadena Original Sello:")
+            c.drawString(60, 108, f"||1.1|{idcif}|{datetime.now().isoformat()}|{rfc}||")
 
         c.save()
         buffer.seek(0)
         return send_file(buffer, mimetype='application/pdf', as_attachment=True, download_name=f'CSF_{rfc}.pdf')
 
     except Exception as e:
-        return f"Error en servidor: {str(e)}", 500
+        return f"Error Crítico: {str(e)}", 500
         
