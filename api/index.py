@@ -59,7 +59,7 @@ def procesar():
         # 1. CÉDULA DE IDENTIFICACIÓN FISCAL (Recuadro Blanco)
         # ---------------------------------------------------------
         c.setFont("SansBold", 8)
-        c.drawCentredString(165, 608 + SUBIR_X, rfc)
+        c.drawCentredString(170, 608 + SUBIR_Y, rfc)
         c.setFont("Sans", 6)
         c.drawCentredString(165, 582 + SUBIR_Y, nombre_full)
         c.drawCentredString(165, 565 + SUBIR_Y, f"idCIF: {idcif}")
