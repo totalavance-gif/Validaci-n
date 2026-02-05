@@ -41,7 +41,8 @@ def procesar():
         rfc = curp[:10] + "".join(random.choices(string.ascii_uppercase + string.digits, k=3))
         idcif = "".join(random.choices(string.digits, k=11))
         nombres, ape_pat, ape_mat = separar_nombre(nombre_full)
-        fecha_fija = "25 DE DICIEMBRE DE 2014"
+        fecha_ini = "25 DE DICIEMBRE DE 2014"
+        lugar_fecha = f"CIUDAD DE MÉXICO A {datetime.now().day} DE FEBRERO DE 2026"
         
         url_qr = f"https://{request.host}/validador?D1=10&D2=1&D3={idcif}_{rfc}"
 
@@ -56,45 +57,33 @@ def procesar():
         p1_path = os.path.join(base_path, '..', 'plantilla.png')
         c.drawImage(p1_path, 0, 0, width=612, height=792)
 
-        # QR y Cédula
+        # 1. QR y Datos de Cédula
         c.drawImage(ImageReader(obtener_qr_img(url_qr)), 74, 578, width=82, height=82)
         c.setFont("SansBold", 8)
         c.drawCentredString(165, 638, rfc)
         c.setFont("Sans", 6.5)
         c.drawCentredString(165, 612, nombre_full)
-        c.drawCentredString(165, 595, f"idCIF: {idcif}")
-
-        # TABLA 1: IDENTIFICACIÓN (Coordenadas ajustadas)
+        
+        # 2. Lugar y Fecha de Emisión (NUEVO)
+        c.setFont("SansBold", 7.5)
+        c.drawRightString(585, 683, lugar_fecha) 
         c.setFont("Sans", 7)
-        ix, iy, istep = 255, 452, 23.5
-        c.drawString(ix, iy, rfc)
-        c.drawString(ix, iy - istep, curp)
-        c.drawString(ix, iy - (istep * 2), nombres)
-        c.drawString(ix, iy - (istep * 3), ape_pat)
-        c.drawString(ix, iy - (istep * 4), ape_mat)
-        c.drawString(ix, iy - (istep * 5), fecha_fija)
-        c.drawString(ix, iy - (istep * 6), "ACTIVO")
-        c.drawString(ix, iy - (istep * 7), fecha_fija)
-        c.drawString(ix, iy - (istep * 8), nombre_full)
+        c.drawCentredString(725/2, 245, lugar_fecha) # Texto pequeño bajo el cuadro
 
-        # TABLA 2: DOMICILIO (Dos columnas)
+        # 3. Tabla Identificación
+        ix, iy, istep = 255, 452, 23.5
+        datos_id = [rfc, curp, nombres, ape_pat, ape_mat, fecha_ini, "ACTIVO", fecha_ini, nombre_full]
+        for i, val in enumerate(datos_id):
+            c.drawString(ix, iy - (i * istep), str(val))
+
+        # 4. Tabla Domicilio
+        dx1, dx2, dy, ds = 120, 430, 284, 21.0
         c.setFont("Sans", 6.5)
-        dx1, dx2, dy, dstep = 120, 430, 284, 21.0
-        # Fila 1: CP y Tipo Vialidad
-        c.drawString(dx1, dy, "06700")
-        c.drawString(dx2, dy, "CALZADA")
-        # Fila 2: Nombre Vialidad y Num Ext
-        c.drawString(dx1, dy - dstep, "INSURGENTES")
-        c.drawString(dx2, dy - dstep, "880")
-        # Fila 3: Num Int y Colonia
-        c.drawString(dx1, dy - (dstep * 2), "S/N")
-        c.drawString(dx2, dy - (dstep * 2), "ROMA NORTE")
-        # Fila 4: Localidad y Municipio
-        c.drawString(dx1, dy - (dstep * 3), "CUAUHTÉMOC")
-        c.drawString(dx2, dy - (dstep * 3), "CUAUHTÉMOC")
-        # Fila 5: Entidad y Entre Calle
-        c.drawString(dx1, dy - (dstep * 4), "CIUDAD DE MÉXICO")
-        c.drawString(dx2, dy - (dstep * 4), "CALLE 10")
+        c.drawString(dx1, dy, "06700"); c.drawString(dx2, dy, "CALZADA")
+        c.drawString(dx1, dy-ds, "INSURGENTES"); c.drawString(dx2, dy-ds, "880")
+        c.drawString(dx1, dy-(ds*2), "S/N"); c.drawString(dx2, dy-(ds*2), "ROMA NORTE")
+        c.drawString(dx1, dy-(ds*3), "CUAUHTÉMOC"); c.drawString(dx2, dy-(ds*3), "CUAUHTÉMOC")
+        c.drawString(dx1, dy-(ds*4), "CIUDAD DE MÉXICO"); c.drawString(dx2, dy-(ds*4), "GIRASOLES")
 
         c.showPage()
 
@@ -103,24 +92,31 @@ def procesar():
         if os.path.exists(p2_path):
             c.drawImage(p2_path, 0, 0, width=612, height=792)
             
-            # Actividades (Y=615)
+            # 1. ACTIVIDADES ECONÓMICAS
             c.setFont("Sans", 7)
-            c.drawString(90, 615, "Asalariado") 
-            c.drawString(415, 615, "100") 
-            c.drawString(485, 615, fecha_fija)
-            
-            # Regímenes (Y=530)
+            c.drawString(45, 615, "1") # Orden
+            c.drawString(90, 615, "Asalariado") # Actividad
+            c.drawString(415, 615, "100") # Porcentaje
+            c.drawString(485, 615, fecha_ini) # Fecha Inicio
+
+            # 2. REGÍMENES
             c.drawString(60, 530, "Régimen de Sueldos y Salarios e Ingresos Asimilados a Salarios")
-            c.drawString(485, 530, fecha_fija)
+            c.drawString(485, 530, fecha_ini) # Fecha Inicio Régimen
 
-            # Sellos (Parte inferior)
+            # 3. CADENA Y SELLOS (Ubicación Inferior)
+            c.setFont("SansBold", 6)
+            c.drawString(60, 125, "Cadena Original Sello:")
             c.setFont("Sans", 5)
-            c.drawString(60, 115, "Cadena Original Sello:")
-            c.drawString(60, 108, f"||1.1|{idcif}|{datetime.now().isoformat()}|{rfc}|{curp}||")
-            c.drawString(60, 85, "Sello Digital:")
-            c.drawString(60, 78, "".join(random.choices(string.ascii_letters + string.digits, k=110)))
+            cadena = f"||1.1|{idcif}|{datetime.now().isoformat()}|{rfc}|{curp}||"
+            c.drawString(60, 118, cadena)
+            
+            c.setFont("SansBold", 6)
+            c.drawString(60, 95, "Sello Digital:")
+            c.setFont("Sans", 5)
+            sello = "".join(random.choices(string.ascii_letters + string.digits, k=115))
+            c.drawString(60, 88, sello)
 
-            # QR Validación Final
+            # 4. QR DE VALIDACIÓN P2
             c.drawImage(ImageReader(obtener_qr_img(url_qr)), 480, 80, width=85, height=85)
 
         c.save()
@@ -132,10 +128,4 @@ def procesar():
 
 @app.route('/')
 def index(): return render_template('index.html')
-
-@app.route('/validador')
-def validador():
-    d3 = request.args.get('D3', '')
-    rfc = d3.split("_")[1] if "_" in d3 else "PERJ82100497A"
-    return render_template('validador.html', d={"rfc": rfc, "situacion": "ACTIVO"})
-        
+    
