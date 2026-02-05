@@ -15,7 +15,7 @@ app = Flask(__name__, template_folder='../templates')
 # T7 es el tamaño ideal para que no choque con los bordes de la celda
 T_GRAL = 7          
 # El desplazamiento de 1cm (28 pts) es correcto para compensar el margen de la plantilla
-SUBIR_Y = 28        
+SUBIR_Y = 35        
 
 def separar_nombre(nombre_completo):
     partes = nombre_completo.split()
