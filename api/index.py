@@ -5,24 +5,41 @@ from fpdf import FPDF
 
 app = Flask(__name__, template_folder='../templates')
 
-def pt_to_mm(pt):
-    return pt * 0.352778
+# --- CONFIGURACIÓN DE PRECISIÓN ---
+AJUSTE_Y_FINO = -0.8  # Ajuste para compensar el renderizado de la fuente (en mm)
+PT_TO_MM = 0.352778
+
+def get_y_mm(y_pt):
+    # Invierte el eje Y (792pt es el alto de Letter) y convierte a mm
+    return (792 - y_pt) * PT_TO_MM + AJUSTE_Y_FINO
+
+def pos_abs(pdf, x_pt, y_pt):
+    """Posiciona el cursor en coordenadas exactas de ReportLab."""
+    pdf.set_xy(x_pt * PT_TO_MM, get_y_mm(y_pt))
+
+def draw_center_abs(pdf, x_pt, y_pt, text):
+    """Réplica exacta de drawCentredString."""
+    w_text = pdf.get_string_width(text)
+    x_mm = (x_pt * PT_TO_MM) - (w_text / 2)
+    pdf.set_xy(x_mm, get_y_mm(y_pt))
+    pdf.write(0, text)
 
 class CSF(FPDF):
     def __init__(self):
         super().__init__(orientation='P', unit='mm', format='Letter')
+        # REGLA 1: Anular márgenes y salto automático
+        self.set_margins(0, 0, 0)
         self.set_auto_page_break(False)
 
 @app.route("/procesar", methods=["POST"])
 def procesar():
     try:
-        # --- DATOS ---
+        # Datos (puedes volver a hacerlos dinámicos con request.form)
         nombre = request.form.get('nombre', 'JORGE ALDO PEREZ RODRIGUEZ').upper()
         curp = request.form.get('curp', 'PERJ821004HDFRDR02').upper()
-        rfc = curp[:10] + "XX1" # Simulado
+        rfc = curp[:10] + "XX1"
         idcif = "21030308867"
         lugar_fecha = f"CIUDAD DE MÉXICO A {datetime.now().day} DE FEBRERO DE 2026"
-        fecha_ini = "25 DE DICIEMBRE DE 2014"
         url_qr = f"https://{request.host}/validador?D3={idcif}_{rfc}"
 
         pdf = CSF()
@@ -34,83 +51,69 @@ def procesar():
         pdf.add_page()
         pdf.image(os.path.join(base, "../plantilla.png"), 0, 0, 215.9, 279.4)
 
-        # QR Cédula
+        # QR Cédula (Posición absoluta)
         qr = qrcode.make(url_qr)
-        qr_buf = io.BytesIO()
-        qr.save(qr_buf, format="PNG")
-        qr_buf.seek(0)
-        pdf.image(qr_buf, x=pt_to_mm(74), y=pt_to_mm(792-578-82), w=pt_to_mm(82), h=pt_to_mm(82))
+        qr_buf = io.BytesIO(); qr.save(qr_buf, format="PNG"); qr_buf.seek(0)
+        pdf.image(qr_buf, x=74 * PT_TO_MM, y=(792-578-82) * PT_TO_MM, w=82 * PT_TO_MM, h=82 * PT_TO_MM)
 
-        # BLOQUE 1: CÉDULA (Centrado manual)
+        # BLOQUE 1: CÉDULA (Centrados reales)
         pdf.set_font("SansBold", size=8)
-        pdf.set_xy(pt_to_mm(165-50), pt_to_mm(792-638))
-        pdf.cell(pt_to_mm(100), 0, rfc, align='C')
-
+        draw_center_abs(pdf, 165, 638, rfc)
+        
         pdf.set_font("Sans", size=6.5)
-        pdf.set_xy(pt_to_mm(165-50), pt_to_mm(792-612))
-        pdf.cell(pt_to_mm(100), 0, nombre, align='C')
+        draw_center_abs(pdf, 165, 612, nombre)
+        draw_center_abs(pdf, 165, 595, f"idCIF: {idcif}")
 
-        pdf.set_xy(pt_to_mm(165-50), pt_to_mm(792-595))
-        pdf.cell(pt_to_mm(100), 0, f"idCIF: {idcif}", align='C')
-
-        # LUGAR Y FECHA (Recuadro superior derecho)
         pdf.set_font("SansBold", size=7.5)
-        pdf.set_xy(pt_to_mm(364-75), pt_to_mm(792-683))
-        pdf.cell(pt_to_mm(150), 0, lugar_fecha, align='C')
+        draw_center_abs(pdf, 364, 683, lugar_fecha)
 
-        # BLOQUE 2: IDENTIFICACIÓN (Coordenadas exactas)
+        # BLOQUE 2: IDENTIFICACIÓN (Uso de write() para evitar saltos de cell)
         pdf.set_font("Sans", size=7)
-        datos_id = [rfc, curp, "JORGE ALDO", "PEREZ", "RODRIGUEZ", fecha_ini, "ACTIVO", fecha_ini, ""]
-        y_fix = 452
+        y_id = 452
+        datos_id = [rfc, curp, "JORGE ALDO", "PEREZ", "RODRIGUEZ", "25 DE DICIEMBRE DE 2014", "ACTIVO", "25 DE DICIEMBRE DE 2014", ""]
         for d in datos_id:
-            pdf.set_xy(pt_to_mm(255), pt_to_mm(792-y_fix))
-            pdf.cell(100, 0, str(d))
-            y_fix -= 23.5
+            pos_abs(pdf, 255, y_id)
+            pdf.write(0, str(d))
+            y_id -= 23.5
 
-        # BLOQUE 3: DOMICILIO
+        # BLOQUE 3: DOMICILIO (Mapeo directo)
         pdf.set_font("Sans", size=6.5)
         filas_y = [284, 263, 242, 221, 200]
         col_izq = ["06700", "INSURGENTES", "S/N", "CUAUHTÉMOC", "CIUDAD DE MÉXICO"]
         col_der = ["CALZADA", "880", "ROMA NORTE", "CUAUHTÉMOC", "CALLE 10 Y 12"]
         
         for i in range(len(filas_y)):
-            pdf.set_xy(pt_to_mm(120), pt_to_mm(792-filas_y[i]))
-            pdf.cell(80, 0, col_izq[i])
-            pdf.set_xy(pt_to_mm(430), pt_to_mm(792-filas_y[i]))
-            pdf.cell(80, 0, col_der[i])
+            pos_abs(pdf, 120, filas_y[i])
+            pdf.write(0, col_izq[i])
+            pos_abs(pdf, 430, filas_y[i])
+            pdf.write(0, col_der[i])
 
         # ================== PÁGINA 2 ==================
         pdf.add_page()
         pdf.image(os.path.join(base, "../plantilla2.png"), 0, 0, 215.9, 279.4)
 
-        # BLOQUE 4: ACTIVIDADES (Coordenadas X: 45, 90, 415, 485 | Y: 615)
+        # Actividades
         pdf.set_font("Sans", size=7)
-        y_act = 615
-        pdf.set_xy(pt_to_mm(45), pt_to_mm(792-y_act)); pdf.cell(10, 0, "1")
-        pdf.set_xy(pt_to_mm(90), pt_to_mm(792-y_act)); pdf.cell(100, 0, "Asalariado")
-        pdf.set_xy(pt_to_mm(415), pt_to_mm(792-y_act)); pdf.cell(20, 0, "100")
-        pdf.set_xy(pt_to_mm(485), pt_to_mm(792-y_act)); pdf.cell(40, 0, fecha_ini)
+        pos_abs(pdf, 45, 615); pdf.write(0, "1")
+        pos_abs(pdf, 90, 615); pdf.write(0, "Asalariado")
+        pos_abs(pdf, 415, 615); pdf.write(0, "100")
+        pos_abs(pdf, 485, 615); pdf.write(0, "25 DE DICIEMBRE DE 2014")
 
-        # BLOQUE 5: REGÍMENES (X: 60, 485 | Y: 530)
-        y_reg = 530
-        pdf.set_xy(pt_to_mm(60), pt_to_mm(792-y_reg))
-        pdf.cell(150, 0, "Régimen de Sueldos y Salarios e Ingresos Asimilados a Salarios")
-        pdf.set_xy(pt_to_mm(485), pt_to_mm(792-y_reg))
-        pdf.cell(40, 0, fecha_ini)
+        # Regímenes
+        pos_abs(pdf, 60, 530); pdf.write(0, "Régimen de Sueldos y Salarios e Ingresos Asimilados a Salarios")
+        pos_abs(pdf, 485, 530); pdf.write(0, "25 DE DICIEMBRE DE 2014")
 
-        # BLOQUE 6: SELLOS Y QR FINAL
+        # Sellos (X=60)
         pdf.set_font("SansBold", size=6)
-        pdf.set_xy(pt_to_mm(60), pt_to_mm(792-125)); pdf.cell(100, 0, "Cadena Original Sello:")
+        pos_abs(pdf, 60, 125); pdf.write(0, "Cadena Original Sello:")
         pdf.set_font("Sans", size=5)
-        pdf.set_xy(pt_to_mm(60), pt_to_mm(792-118))
-        pdf.cell(180, 0, f"||1.1|CSF|{idcif}|{datetime.now().isoformat()}|{rfc}||")
-        
-        qr_buf.seek(0)
-        pdf.image(qr_buf, x=pt_to_mm(480), y=pt_to_mm(792-80-85), w=pt_to_mm(85), h=pt_to_mm(85))
+        pos_abs(pdf, 60, 118); pdf.write(0, f"||1.1|CSF|{idcif}|{datetime.now().isoformat()}|{rfc}||")
 
-        # --- GENERACIÓN ---
-        output = pdf.output()
-        return send_file(io.BytesIO(output), mimetype="application/pdf", as_attachment=True, download_name=f"CSF_{rfc}.pdf")
+        # QR P2
+        qr_buf.seek(0)
+        pdf.image(qr_buf, x=480 * PT_TO_MM, y=(792-80-85) * PT_TO_MM, w=85 * PT_TO_MM, h=85 * PT_TO_MM)
+
+        return send_file(io.BytesIO(pdf.output()), mimetype="application/pdf", as_attachment=True, download_name=f"CSF_{rfc}.pdf")
 
     except Exception as e:
         return f"Error: {str(e)}", 500
@@ -120,3 +123,4 @@ def index(): return render_template("index.html")
 
 @app.route("/validador")
 def validador(): return render_template("validador.html")
+        
