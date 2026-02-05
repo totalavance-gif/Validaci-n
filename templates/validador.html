@@ -3,87 +3,56 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Verificación de Situación Fiscal</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <title>Validador QR - SAT</title>
     <style>
-        .sat-gradient {
-            background: linear-gradient(135deg, #13322b 0%, #0b1d19 100%);
-        }
+        body { font-family: 'Arial', sans-serif; background-color: #f4f4f4; margin: 0; padding: 10px; color: #333; }
+        .header { display: flex; justify-content: center; padding: 15px; background: white; margin-bottom: 20px; }
+        .header img { height: 45px; }
+        
+        .aviso { background: #fdf5e6; border: 1px solid #d4af37; border-radius: 8px; padding: 10px; margin-bottom: 15px; font-size: 14px; }
+        
+        .card { background: white; border-radius: 12px; overflow: hidden; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); border: 1px solid #ccc; }
+        .card-header { background: linear-gradient(to bottom, #c0a060, #96793d); color: #4b3b21; padding: 8px 15px; font-weight: bold; font-size: 15px; border-bottom: 2px solid #856404; }
+        
+        .row { display: flex; padding: 8px 15px; border-bottom: 1px solid #eee; align-items: center; }
+        .label { width: 45%; font-weight: bold; font-size: 13px; text-align: right; padding-right: 15px; color: #555; }
+        .value { width: 55%; font-size: 13px; color: #000; text-transform: uppercase; }
+        
+        .footer-info { font-size: 11px; text-align: center; color: #888; margin-top: 20px; }
     </style>
 </head>
-<body class="bg-gray-100 font-sans antialiased">
-    <div class="max-w-md mx-auto min-h-screen flex flex-col bg-white shadow-2xl">
-        
-        <div class="sat-gradient p-5 text-white flex justify-between items-center shadow-lg">
-            <div class="flex items-center gap-2">
-                <div class="w-8 h-8 bg-white rounded-full flex items-center justify-center p-1">
-                    <img src="https://www.gob.mx/cms/uploads/image/file/485351/logo-sat.jpg" alt="SAT" class="object-contain">
-                </div>
-                <span class="text-xs font-bold uppercase tracking-widest leading-none">Servicio de Administración<br>Tributaria</span>
-            </div>
-            <div class="text-[10px] text-right opacity-80 uppercase tracking-tighter">
-                Verificación de<br>Cédula Fiscal
-            </div>
-        </div>
+<body>
 
-        <div class="p-8 flex-grow">
-            <div class="text-center mb-8">
-                <div class="relative inline-block">
-                    <div class="inline-flex items-center justify-center w-20 h-20 bg-green-100 rounded-full border-4 border-green-50">
-                        <svg class="w-12 h-12 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path>
-                        </svg>
-                    </div>
-                    <div class="absolute -bottom-2 -right-2 bg-green-500 text-white p-1 rounded-full shadow-md">
-                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"></path></svg>
-                    </div>
-                </div>
-                <h1 class="text-2xl font-black text-gray-800 mt-4 uppercase">Documento Válido</h1>
-                <p class="text-sm text-green-600 font-bold uppercase tracking-widest mt-1">Consulta Exitosa</p>
-            </div>
-
-            <div class="space-y-6 bg-gray-50 p-5 rounded-2xl border border-gray-100">
-                <div class="border-b border-gray-200 pb-3">
-                    <label class="text-[10px] text-gray-400 font-black uppercase tracking-widest">RFC del Contribuyente</label>
-                    <p class="text-xl font-mono font-bold text-gray-900 tracking-widest">{{ rfc }}</p>
-                </div>
-                
-                <div class="border-b border-gray-200 pb-3">
-                    <label class="text-[10px] text-gray-400 font-black uppercase tracking-widest">Identificador idCIF</label>
-                    <p class="text-lg font-mono text-gray-700 font-medium tracking-tighter">{{ idcif }}</p>
-                </div>
-
-                <div class="flex items-center gap-3">
-                    <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                    <div>
-                        <label class="text-[10px] text-gray-400 font-black uppercase tracking-widest">Estatus en el Padrón</label>
-                        <p class="text-md font-black text-green-700 uppercase">Activo - Localizado</p>
-                    </div>
-                </div>
-            </div>
-
-            <div class="mt-8 pt-6 border-t border-dashed border-gray-300">
-                <div class="flex flex-col gap-2 text-[10px] text-gray-500 font-medium">
-                    <div class="flex justify-between">
-                        <span>FECHA DE CONSULTA:</span>
-                        <span class="text-gray-800 font-bold">{{ datetime }}</span>
-                    </div>
-                    <div class="flex justify-between">
-                        <span>MÉTODO DE VERIFICACIÓN:</span>
-                        <span class="text-gray-800 font-bold uppercase">Código QR Seguro</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="p-6 bg-gray-50 border-t border-gray-100">
-            <button onclick="window.location.reload()" class="w-full bg-gray-800 text-white py-4 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-black transition-all active:scale-95 shadow-lg">
-                Actualizar Consulta
-            </button>
-            <p class="text-center text-[8px] text-gray-400 mt-4 uppercase font-bold tracking-tighter">
-                Este sistema es parte del laboratorio de pruebas de validación fiscal 2026.
-            </p>
-        </div>
+    <div class="header">
+        <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/b/b3/SAT_Logo.svg/1200px-SAT_Logo.svg.png" alt="Logo SAT">
     </div>
+
+    <div class="aviso">
+        El RFC: <strong>{{ d.rfc }}</strong>, tiene asociada la siguiente información.
+    </div>
+
+    <div class="card">
+        <div class="card-header">Datos de Identificación</div>
+        <div class="row"><div class="label">CURP:</div><div class="value">{{ d.curp }}</div></div>
+        <div class="row"><div class="label">Nombre:</div><div class="value">{{ d.nombre }}</div></div>
+        <div class="row"><div class="label">Apellido Paterno:</div><div class="value">{{ d.paterno }}</div></div>
+        <div class="row"><div class="label">Apellido Materno:</div><div class="value">{{ d.materno }}</div></div>
+        <div class="row"><div class="label">Fecha Nacimiento:</div><div class="value">{{ d.fecha_nac }}</div></div>
+        <div class="row"><div class="label">Fecha de Inicio de operaciones:</div><div class="value">{{ d.inicio_op }}</div></div>
+        <div class="row"><div class="label">Situación del contribuyente:</div><div class="value" style="color: green; font-weight: bold;">{{ d.situacion }}</div></div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">Datos de Ubicación (domicilio fiscal, vigente)</div>
+        <div class="row"><div class="label">Entidad Federativa:</div><div class="value">{{ d.domicilio.entidad }}</div></div>
+        <div class="row"><div class="label">Municipio o delegación:</div><div class="value">{{ d.domicilio.municipio }}</div></div>
+        <div class="row"><div class="label">Colonia:</div><div class="value">{{ d.domicilio.colonia }}</div></div>
+        <div class="row"><div class="label">CP:</div><div class="value">{{ d.domicilio.cp }}</div></div>
+    </div>
+
+    <div class="footer-info">
+        Esta información es de carácter oficial conforme a los registros del SAT.
+    </div>
+
 </body>
 </html>
