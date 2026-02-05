@@ -1,8 +1,4 @@
-import os
-import io
-import random
-import string
-import qrcode
+import os, io, random, string, qrcode
 from datetime import datetime
 from flask import Flask, render_template, request, send_file
 from reportlab.pdfgen import canvas
@@ -13,117 +9,106 @@ from reportlab.lib.utils import ImageReader
 
 app = Flask(__name__, template_folder='../templates')
 
+# CONFIGURACIÓN MAESTRA (Tu JSON convertido a diccionario)
+MAPEO = {
+    "cedula": {
+        "qr": {"x": 74, "y": 578, "w": 82, "h": 82},
+        "rfc": {"xc": 165, "y": 638, "f": "SansBold", "s": 8},
+        "nombre": {"xc": 165, "y": 612, "f": "Sans", "s": 6.5},
+        "idcif": {"xc": 165, "y": 595, "f": "Sans", "s": 6.5, "pre": "idCIF: "},
+        "lugar_fecha": {"xc": 364, "y": 683, "f": "SansBold", "s": 7.5}
+    },
+    "identificacion": {"x": 255, "y": 452, "step": 23.5, "f": "Sans", "s": 7},
+    "domicilio": {"y_ini": 284, "step": 21.0, "x_izq": 120, "x_der": 430, "f": "Sans", "s": 6.5},
+    "hoja2": {
+        "act": {"y": 615, "col": [45, 90, 415, 485], "f": "Sans", "s": 7},
+        "reg": {"y": 530, "col": [60, 485], "f": "Sans", "s": 7},
+        "sellos": {
+            "x": 60, "cy": 125, "cv": 118, "sy": 95, "sv": 88,
+            "ft": "SansBold", "st": 6, "fc": "Sans", "sc": 5
+        },
+        "qr": {"x": 480, "y": 80, "w": 85, "h": 85}
+    }
+}
+
 def obtener_qr_img(contenido):
     qr_gen = qrcode.QRCode(box_size=10, border=0)
     qr_gen.add_data(contenido)
     qr_gen.make(fit=True)
     img = qr_gen.make_image(fill_color="black", back_color="white")
-    img_byte_arr = io.BytesIO()
-    img.save(img_byte_arr, format='PNG')
-    img_byte_arr.seek(0)
+    img_byte_arr = io.BytesIO(); img.save(img_byte_arr, format='PNG'); img_byte_arr.seek(0)
     return img_byte_arr
 
-def separar_nombre(nombre_completo):
-    partes = nombre_completo.split()
-    if len(partes) >= 3:
-        paterno, materno, nombres = partes[-2], partes[-1], " ".join(partes[:-2])
-    elif len(partes) == 2:
-        nombres, paterno, materno = partes[0], partes[1], ""
-    else:
-        nombres, paterno, materno = nombre_completo, "", ""
-    return nombres, paterno, materno
+def separar_nombre(nombre_full):
+    p = nombre_full.split()
+    return (" ".join(p[:-2]), p[-2], p[-1]) if len(p) >= 3 else (nombre_full, "", "")
 
 @app.route('/procesar', methods=['POST'])
 def procesar():
     try:
-        # --- DATOS ---
+        # 1. Preparación de Datos
         curp = request.form.get('curp', '').upper()
         nombre_full = request.form.get('nombre', '').upper()
         rfc = curp[:10] + "".join(random.choices(string.ascii_uppercase + string.digits, k=3))
         idcif = "".join(random.choices(string.digits, k=11))
-        nombres, ape_pat, ape_mat = separar_nombre(nombre_full)
-        fecha_const = "25 DE DICIEMBRE DE 2014"
-        lugar_fecha = f"CIUDAD DE MÉXICO A {datetime.now().day} DE FEBRERO DE 2026"
+        nom, pat, mat = separar_nombre(nombre_full)
+        fecha_f = "25 DE DICIEMBRE DE 2014"
+        lugar_f = f"CIUDAD DE MÉXICO A {datetime.now().day} DE FEBRERO DE 2026"
         url_qr = f"https://{request.host}/validador?D1=10&D2=1&D3={idcif}_{rfc}"
 
-        buffer = io.BytesIO()
-        c = canvas.Canvas(buffer, pagesize=letter)
-        base_path = os.path.dirname(os.path.abspath(__file__))
+        buffer = io.BytesIO(); c = canvas.Canvas(buffer, pagesize=letter)
+        base = os.path.dirname(os.path.abspath(__file__))
+        pdfmetrics.registerFont(TTFont('Sans', os.path.join(base, 'DejaVuSans.ttf')))
+        pdfmetrics.registerFont(TTFont('SansBold', os.path.join(base, 'DejaVuSans-Bold.ttf')))
+
+        # --- PÁGINA 1 ---
+        c.drawImage(os.path.join(base, '..', 'plantilla.png'), 0, 0, 612, 792)
         
-        pdfmetrics.registerFont(TTFont('Sans', os.path.join(base_path, 'DejaVuSans.ttf')))
-        pdfmetrics.registerFont(TTFont('SansBold', os.path.join(base_path, 'DejaVuSans-Bold.ttf')))
+        # Bloque Cédula
+        m1 = MAPEO["cedula"]
+        c.drawImage(ImageReader(obtener_qr_img(url_qr)), m1["qr"]["x"], m1["qr"]["y"], m1["qr"]["w"], m1["qr"]["h"])
+        c.setFont(m1["rfc"]["f"], m1["rfc"]["s"]); c.drawCentredString(m1["rfc"]["xc"], m1["rfc"]["y"], rfc)
+        c.setFont(m1["nombre"]["f"], m1["nombre"]["s"]); c.drawCentredString(m1["nombre"]["xc"], m1["nombre"]["y"], nombre_full)
+        c.setFont(m1["idcif"]["f"], m1["idcif"]["s"]); c.drawCentredString(m1["idcif"]["xc"], m1["idcif"]["y"], f"{m1['idcif']['pre']}{idcif}")
+        c.setFont(m1["lugar_fecha"]["f"], m1["lugar_fecha"]["s"]); c.drawCentredString(m1["lugar_fecha"]["xc"], m1["lugar_fecha"]["y"], lugar_f)
 
-        # ================== PÁGINA 1 ==================
-        p1_path = os.path.join(base_path, '..', 'plantilla.png')
-        c.drawImage(p1_path, 0, 0, width=612, height=792)
+        # Bloque Identificación
+        m2 = MAPEO["identificacion"]
+        c.setFont(m2["f"], m2["s"])
+        d_id = [rfc, curp, nom, pat, mat, fecha_f, "ACTIVO", fecha_f, " "]
+        for i, val in enumerate(d_id): c.drawString(m2["x"], m2["y"] - (i * m2["step"]), str(val))
 
-        # 1. QR Y CÉDULA
-        c.drawImage(ImageReader(obtener_qr_img(url_qr)), 74, 578, width=82, height=82)
-        c.setFont("SansBold", 8)
-        c.drawCentredString(165, 638, rfc)
-        c.setFont("Sans", 6.5)
-        c.drawCentredString(165, 612, nombre_full)
-        c.drawCentredString(165, 595, f"idCIF: {idcif}")
-
-        # 2. LUGAR Y FECHA DE EMISIÓN (Corregido al recuadro superior)
-        c.setFont("SansBold", 7.5)
-        c.drawCentredString(728/2, 683, lugar_fecha) 
-
-        # 3. IDENTIFICACIÓN (Tabla superior)
-        c.setFont("Sans", 7)
-        ix, iy, istep = 255, 452, 23.5
-        datos_id = [rfc, curp, nombres, ape_pat, ape_mat, fecha_const, "ACTIVO", fecha_const, nombre_full]
-        for i, val in enumerate(datos_id):
-            c.drawString(ix, iy - (i * istep), str(val))
-
-        # 4. DOMICILIO (Tabla inferior)
-        dx1, dx2, dy, dstep = 120, 430, 284, 21.0
-        c.setFont("Sans", 6.5)
-        c.drawString(dx1, dy, "06700"); c.drawString(dx2, dy, "CALZADA")
-        c.drawString(dx1, dy-dstep, "INSURGENTES"); c.drawString(dx2, dy-dstep, "880")
-        c.drawString(dx1, dy-(dstep*2), "S/N"); c.drawString(dx2, dy-(dstep*2), "ROMA NORTE")
-        c.drawString(dx1, dy-(dstep*3), "CUAUHTÉMOC"); c.drawString(dx2, dy-(dstep*3), "CUAUHTÉMOC")
-        c.drawString(dx1, dy-(dstep*4), "CIUDAD DE MÉXICO"); c.drawString(dx2, dy-(dstep*4), "CALLE 10 Y 12")
+        # Bloque Domicilio
+        m3 = MAPEO["domicilio"]
+        c.setFont(m3["f"], m3["s"])
+        filas = [["06700", "CALZADA"], ["INSURGENTES", "880"], ["S/N", "ROMA NORTE"], ["CUAUHTÉMOC", "CUAUHTÉMOC"], ["CIUDAD DE MÉXICO", "CALLE 10 Y 12"]]
+        for i, f in enumerate(filas):
+            c.drawString(m3["x_izq"], m3["y_ini"] - (i * m3["step"]), f[0])
+            c.drawString(m3["x_der"], m3["y_ini"] - (i * m3["step"]), f[1])
 
         c.showPage()
 
-        # ================== PÁGINA 2 ==================
-        p2_path = os.path.join(base_path, '..', 'plantilla2.png')
-        if os.path.exists(p2_path):
-            c.drawImage(p2_path, 0, 0, width=612, height=792)
-            
-            # 5. ACTIVIDADES ECONÓMICAS (Dentro de celdas)
-            c.setFont("Sans", 7)
-            c.drawString(45, 615, "1")                # Orden
-            c.drawString(90, 615, "Asalariado")        # Actividad
-            c.drawString(415, 615, "100")              # Porcentaje
-            c.drawString(485, 615, fecha_const)        # Fecha Inicio
+        # --- PÁGINA 2 ---
+        c.drawImage(os.path.join(base, '..', 'plantilla2.png'), 0, 0, 612, 792)
+        m4 = MAPEO["hoja2"]
+        
+        # Actividades y Regímenes
+        c.setFont(m4["act"]["f"], m4["act"]["s"])
+        for x, val in zip(m4["act"]["col"], ["1", "Asalariado", "100", fecha_f]): c.drawString(x, m4["act"]["y"], val)
+        for x, val in zip(m4["reg"]["col"], ["Régimen de Sueldos y Salarios", fecha_f]): c.drawString(x, m4["reg"]["y"], val)
 
-            # 6. REGÍMENES (Dentro de celdas)
-            c.drawString(60, 530, "Régimen de Sueldos y Salarios e Ingresos Asimilados a Salarios")
-            c.drawString(485, 530, fecha_const)        # Fecha Inicio
+        # Sellos
+        s = m4["sellos"]
+        c.setFont(s["ft"], s["st"]); c.drawString(s["x"], s["cy"], "Cadena Original Sello:")
+        c.setFont(s["fc"], s["sc"]); c.drawString(s["x"], s["cv"], f"||1.1|{idcif}|{datetime.now().isoformat()}|{rfc}||")
+        c.setFont(s["ft"], s["st"]); c.drawString(s["x"], s["sy"], "Sello Digital:")
+        c.setFont(s["fc"], s["sc"]); c.drawString(s["x"], s["sv"], "".join(random.choices(string.ascii_letters + string.digits, k=115)))
+        
+        c.drawImage(ImageReader(obtener_qr_img(url_qr)), m4["qr"]["x"], m4["qr"]["y"], m4["qr"]["w"], m4["qr"]["h"])
 
-            # 7. SELLOS Y CADENA (Pie de página)
-            c.setFont("SansBold", 6)
-            c.drawString(60, 125, "Cadena Original Sello:")
-            c.setFont("Sans", 5)
-            c.drawString(60, 118, f"||1.1|{idcif}|{datetime.now().strftime('%Y-%m-%dT%H:%M:%S')}|{rfc}|{curp}||")
-            
-            c.setFont("SansBold", 6)
-            c.drawString(60, 95, "Sello Digital:")
-            c.setFont("Sans", 5)
-            sello_fake = "".join(random.choices(string.ascii_letters + string.digits, k=110))
-            c.drawString(60, 88, sello_fake)
-
-            # 8. QR VALIDACIÓN P2
-            c.drawImage(ImageReader(obtener_qr_img(url_qr)), 480, 80, width=85, height=85)
-
-        c.save()
-        buffer.seek(0)
+        c.save(); buffer.seek(0)
         return send_file(buffer, mimetype='application/pdf', as_attachment=True, download_name=f'CSF_{rfc}.pdf')
-
-    except Exception as e:
-        return f"Error: {str(e)}", 500
+    except Exception as e: return f"Error: {str(e)}", 500
 
 @app.route('/')
 def index(): return render_template('index.html')
@@ -133,4 +118,3 @@ def validador():
     d3 = request.args.get('D3', '')
     rfc = d3.split("_")[1] if "_" in d3 else "PERJ82100497A"
     return render_template('validador.html', d={"rfc": rfc, "situacion": "ACTIVO"})
-      
